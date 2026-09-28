@@ -12,7 +12,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "11";
+const APP_VERSION = "12";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -729,7 +729,7 @@ async function notifySheet() {
     : !supported ? "Этот телефон не поддерживает уведомления. Нужен iOS 16.4 или новее."
     : !vapidKey ? "Уведомления ещё не настроены (нет ключа VAPID)." : "";
   const bg = sheet(`
-    <div class="navrow"><button type="button" class="link" data-close>Закрыть</button><b>Уведомления</b><button class="link" type="submit" ${reason ? "hidden" : ""}>Сохранить</button></div>
+    <div class="navrow"><button type="button" class="link" data-close>Закрыть</button><b>Уведомления</b><span></span></div>
     ${reason ? `<div class="pk-warn-line">${reason}</div>` : `
     <div class="meta">${on ? "Уведомления на этом телефоне включены." : "Включи, чтобы получать напоминания о тренировках."}</div>
     <div class="field"><span class="lbl">Сводка на день</span><div class="chips" data-group="morning">
@@ -740,12 +740,12 @@ async function notifySheet() {
     </div></div>
     <div class="meta">Уведомления могут приходить с задержкой до 5 минут.</div>
     <div class="err" id="n-err"></div>
+    <button type="submit" class="btn block">${on ? "Сохранить настройки" : "🔔 Включить уведомления"}</button>
     ${on ? `<button type="button" class="btn ghost block" id="n-test">Прислать тестовое</button><button type="button" class="link danger" id="n-off">Выключить на этом телефоне</button>` : ""}`}
   `, (fd, el) => { enableNotifications(el); return false; });
   bg.querySelectorAll("[data-group] .chip").forEach((b) => b.addEventListener("click", () => {
     b.parentElement.querySelectorAll(".chip").forEach((x) => x.classList.toggle("on", x === b));
   }));
-  if (!on && !reason) bg.querySelector("[type=submit]").textContent = "Включить";
   bg.querySelector("#n-off")?.addEventListener("click", async () => {
     try { await deleteToken(getMessaging(fb)); } catch {}
     deleteDoc(ref).catch(showError); bg.remove(); showError({ message: "Уведомления выключены." });
