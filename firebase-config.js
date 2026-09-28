@@ -9,4 +9,4 @@ export const firebaseConfig = {
 };
 
 // Firebase → Project settings → Cloud Messaging → Web Push certificates → Key pair (публичный ключ).
-export const vapidKey = "";
+export const vapidKey = "BCgzTKiDHwz06uoFSuB7TQYzywMyxqBSd1tbgtlI7qEZJ4Vu4bwyYwvI6eJ0q4eGSrOMluBhemKCDX4qmdefmlM";
