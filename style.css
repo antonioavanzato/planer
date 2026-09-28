@@ -83,3 +83,7 @@ svg.chart{width:100%;height:auto;display:block;margin-top:10px}
 .login{max-width:380px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:24px 16px}
 .login h1{font-size:44px}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+img.ava{object-fit:cover;padding:0;background:var(--line)}
+.photo-pick{display:flex;align-items:center;gap:14px}
+.photo-pick .ava{width:64px;height:64px;font-size:24px}
+[hidden]{display:none!important}

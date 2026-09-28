@@ -159,6 +159,20 @@ function renderLogin() {
 }
 
 // ---------- список клиентов ----------
+const avatar = (c) => c.photo
+  ? `<img class="ava" src="${esc(c.photo)}" alt="">`
+  : `<div class="ava">${esc(initials(c.name))}</div>`;
+
+// сжимаем фото до квадратной аватарки ~320px, чтобы хранить прямо в карточке клиента
+async function photoToDataUrl(file, size = 320) {
+  const bmp = await createImageBitmap(file);
+  const side = Math.min(bmp.width, bmp.height);
+  const cv = document.createElement("canvas"); cv.width = cv.height = size;
+  cv.getContext("2d").drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, size, size);
+  bmp.close?.();
+  return cv.toDataURL("image/jpeg", 0.8);
+}
+
 function lastWorkout(cid) { const ws = workoutsOf(cid); return ws[ws.length - 1]; }
 
 function renderClients() {
@@ -173,7 +187,7 @@ function renderClients() {
   const rows = list.map(({ c, last, n }) => {
     const g = clientGain(c.id);
     return `<button class="row" data-go="#/c/${c.id}">
-      <div class="ava">${esc(initials(c.name))}</div>
+      ${avatar(c)}
       <div><div class="nm">${esc(c.name)}</div><div class="sub">${last ? `${agoRu(last.date)} · ${esc(last.title || "Тренировка")}` : "Ещё не тренировался"} · ${n} ${plural(n, "тренировка", "тренировки", "тренировок")}</div></div>
       ${g != null ? `<span class="delta ${g <= 0 ? "zero" : ""}">${g > 0 ? "+" : ""}${fmt(g)} кг</span>` : ""}
     </button>`;
@@ -245,7 +259,7 @@ function renderClient(cid) {
 
   $app.innerHTML = `<main class="screen">
     <div class="navrow"><button class="link" data-go="#/">‹ Клиенты</button><span style="display:flex;gap:14px;align-items:center">${syncBadge()}<button class="link" data-act="editClient" data-id="${cid}">Правка</button></span></div>
-    <div class="hero"><div class="ava">${esc(initials(c.name))}</div><div><h2>${esc(c.name)}</h2>
+    <div class="hero">${avatar(c)}<div><h2>${esc(c.name)}</h2>
       <div class="meta">${c.startDate ? `С ${dateRu(c.startDate)} · ` : ""}${ws.length} ${plural(ws.length, "тренировка", "тренировки", "тренировок")}${c.goal ? ` · цель: ${esc(c.goal)}` : ""}</div></div></div>
     ${progress}
     <div class="stats">
@@ -329,9 +343,16 @@ function sheet(html, onSubmit) {
 }
 
 function clientSheet(c) {
+  let photo; // undefined — не менялось, "" — убрали, dataURL — новое фото
   const v = (k) => esc(c?.[k] ?? "");
   sheet(`
     <div class="navrow"><button type="button" class="link" data-close>Отмена</button><b>${c ? "Клиент" : "Новый клиент"}</b><button class="link" type="submit">Сохранить</button></div>
+    <div class="photo-pick">
+      <span id="f-ava">${c?.photo ? `<img class="ava" src="${esc(c.photo)}" alt="">` : `<div class="ava">${c ? esc(initials(c.name)) : "+"}</div>`}</span>
+      <label class="link" for="f-photo">${c?.photo ? "Сменить фото" : "Добавить фото"}</label>
+      <input type="file" accept="image/*" id="f-photo" hidden>
+      <button type="button" class="link danger" id="f-nophoto" ${c?.photo ? "" : "hidden"}>Убрать</button>
+    </div>
     <div class="field"><label class="lbl" for="f-name">Имя и фамилия</label><input class="input" id="f-name" name="name" required value="${v("name")}"></div>
     <div class="field"><label class="lbl" for="f-goal">Цель</label><input class="input" id="f-goal" name="goal" placeholder="сила, масса, похудение…" value="${v("goal")}"></div>
     <div class="field"><label class="lbl" for="f-start">Ходит с</label><input class="input" id="f-start" name="startDate" type="date" value="${c?.startDate || today()}"></div>
@@ -343,11 +364,19 @@ function clientSheet(c) {
     ${c ? `<button type="button" class="link danger" id="delClient">Удалить клиента и все его тренировки</button>` : ""}
   `, (fd) => {
     const data = Object.fromEntries(fd); data.name = data.name.trim();
+    if (photo !== undefined) data.photo = photo;
     if (!data.name) return false;
     const id = c?.id || uid();
     setDoc(userDoc("clients", id), { ...data, ...(c ? {} : { createdAt: Date.now() }), updatedAt: Date.now() }, { merge: true }).catch(showError);
     if (!c) go(`#/c/${id}`);
   });
+  const pick = document.getElementById("f-photo"), ava = document.getElementById("f-ava"), noPhoto = document.getElementById("f-nophoto");
+  pick.onchange = async () => {
+    const f = pick.files[0]; if (!f) return;
+    try { photo = await photoToDataUrl(f); ava.innerHTML = `<img class="ava" src="${photo}" alt="">`; noPhoto.hidden = false; }
+    catch { showError({ message: "Не получилось открыть фото. Попробуй другое." }); }
+  };
+  noPhoto.onclick = () => { photo = ""; ava.innerHTML = `<div class="ava">${c ? esc(initials(c.name)) : "+"}</div>`; noPhoto.hidden = true; };
   document.getElementById("delClient")?.addEventListener("click", (e) => {
     const b = e.currentTarget;
     if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Точно удалить? Нажми ещё раз"; return; }
