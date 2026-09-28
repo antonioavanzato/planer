@@ -11,7 +11,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "5";
+const APP_VERSION = "6";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -21,7 +21,7 @@ const DEFAULT_EXERCISES = [
 
 const state = {
   user: null, clients: [], workouts: [],
-  pending: false, loaded: false,
+  pending: false, pendingBy: {}, loaded: false,
   filter: "all", query: "", chartEx: {},
   draft: null, // тренировка, которая сейчас редактируется
 };
@@ -91,7 +91,9 @@ onAuthStateChanged(auth, (user) => {
   const done = () => { if (++got >= 2) state.loaded = true; };
   const watch = (name, key) => onSnapshot(userCol(name), { includeMetadataChanges: true }, (snap) => {
     state[key] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    state.pending = snap.metadata.hasPendingWrites;
+    // «Отправка…» пока хоть в одной коллекции есть неотправленные изменения
+    state.pendingBy[key] = snap.metadata.hasPendingWrites;
+    state.pending = Object.values(state.pendingBy).some(Boolean);
     done(); scheduleRender();
   }, (err) => { console.error(err); showError(err); });
   unsubs.push(watch("clients", "clients"), watch("workouts", "workouts"));
