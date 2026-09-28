@@ -80,6 +80,16 @@ function run() {
   console.log(`devices: ${devices.length}, sent: ${sent}`);
 }
 
+/** Демо: сразу шлёт уведомление на все подключённые телефоны. Текст можно поменять здесь. */
+function demoPush() {
+  const devices = runQuery_({ from: [{ collectionId: "devices", allDescendants: true }] }).filter((d) => d.data.token);
+  let sent = 0;
+  devices.forEach((d) => {
+    if (send_(d, d.data.token, { title: "Тренировка: Тимур Алиев", body: "Через 1 час, в 18:00", url: APP_URL, tag: "demo" })) sent++;
+  });
+  console.log(`devices: ${devices.length}, sent: ${sent}`);
+}
+
 // ---------- логика ----------
 function minutesUntil_(date, time, now) { return (stamp_(date, time) - stamp_(now.date, now.time)) / 60000; }
 function stamp_(d, t) { return Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10), +t.slice(0, 2), +t.slice(3, 5)); }
