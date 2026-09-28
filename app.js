@@ -410,6 +410,9 @@ document.addEventListener("click", (e) => {
     case "newClient": return clientSheet(null);
     case "editClient": return clientSheet(state.clients.find((c) => c.id === t.dataset.id));
     case "newWorkout": {
+      // одна тренировка в день: если сегодняшняя уже есть — открываем её
+      const existing = workoutsOf(t.dataset.id).find((x) => x.date === today());
+      if (existing) return go(`#/w/${existing.id}`);
       const id = uid();
       state.draft = { id, clientId: t.dataset.id, date: today(), title: "", notes: "", createdAt: Date.now(), exercises: [{ name: "", sets: [{ w: "", r: "" }] }] };
       flushDraft();
