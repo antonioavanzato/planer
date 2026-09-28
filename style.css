@@ -108,3 +108,26 @@ img.ava{object-fit:cover;padding:0;background:var(--line)}
 .pk-line{font-size:12px;font-weight:600;color:var(--pk);background:var(--card);border:1px solid var(--line);border-left:3px solid var(--pk);border-radius:8px;padding:7px 10px}
 .sess.cancel{color:var(--muted)}
 .sess.cancel .x{font-size:13px}
+
+/* расписание */
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn.outline{background:transparent;border:1.5px solid var(--accent);color:var(--accent)}
+.today{display:flex;flex-direction:column;gap:8px}
+.plan-list{display:flex;flex-direction:column}
+.plan-row{display:grid;grid-template-columns:52px auto 1fr auto;gap:10px;align-items:center;padding:9px 0;border:0;border-bottom:1px solid var(--line);background:none;width:100%;text-align:left}
+.list .plan-row{padding-inline:12px}
+.plan-row:last-child{border-bottom:0}
+.plan-row .ava{width:34px;height:34px;font-size:14px}
+.plan-time{font:700 17px var(--mono);font-variant-numeric:tabular-nums}
+.plan-main{display:flex;flex-direction:column;min-width:0}
+.plan-main .sub:empty{display:none}
+.plan-row.overdue .plan-time,.plan-row.overdue .sub{color:var(--bad)}
+.pk-warn-line{font-size:12px;font-weight:600;color:var(--bad);background:var(--card);border:1px solid var(--line);border-left:3px solid var(--bad);border-radius:8px;padding:7px 10px}
+.day{display:flex;flex-direction:column;gap:6px}
+.day-h{display:flex;justify-content:space-between;font:700 18px var(--display);text-transform:uppercase;padding:0 2px}
+.day-h span{color:var(--muted);font:600 12px var(--body)}
+.day-h.overdue{color:var(--bad)}
+.plan-card{display:flex;flex-direction:column;gap:8px}
+.plan-when{font:700 24px var(--display);text-transform:uppercase;display:flex;justify-content:space-between;align-items:baseline}
+.plan-when b{font:700 30px var(--mono);color:var(--accent)}
+select.input{appearance:none}

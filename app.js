@@ -11,7 +11,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "8";
+const APP_VERSION = "9";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -37,6 +37,8 @@ const fmt = (n) => (n == null ? "—" : (Math.round(n * 10) / 10).toString().rep
 const initials = (name) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("") || "?";
 const MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 const dateRu = (iso) => { const [y, m, d] = iso.split("-").map(Number); return `${d} ${MONTHS[m - 1]}${y !== new Date().getFullYear() ? " " + y : ""}`; };
+const WEEKDAYS = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+const dayLabel = (iso) => { const d = -Math.round((new Date(today()) - new Date(iso)) / 864e5); return d === 0 ? "Сегодня" : d === 1 ? "Завтра" : d === -1 ? "Вчера" : `${WEEKDAYS[new Date(iso + "T00:00:00Z").getUTCDay()]}, ${dateRu(iso)}`; };
 const daysAgo = (iso) => Math.round((new Date(today()) - new Date(iso)) / 864e5);
 const agoRu = (iso) => { const d = daysAgo(iso); if (d <= 0) return "Сегодня"; if (d === 1) return "Вчера"; if (d < 7) return `${d} дн. назад`; if (d < 14) return "Неделю назад"; if (d < 60) return `${Math.floor(d / 7)} нед. назад`; return dateRu(iso); };
 const plural = (n, a, b, c) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c; };
@@ -46,8 +48,13 @@ const userDoc = (name, id) => doc(db, "users", state.user.uid, name, id);
 
 // ---------- расчёты прогресса ----------
 const byDate = (a, b) => a.date.localeCompare(b.date) || (a.createdAt || 0) - (b.createdAt || 0);
-const sessionsOf = (cid) => state.workouts.filter((w) => w.clientId === cid).sort(byDate); // тренировки + поздние отмены
-const workoutsOf = (cid) => state.workouts.filter((w) => w.clientId === cid && w.kind !== "cancel").sort((a, b) => a.date.localeCompare(b.date) || (a.createdAt || 0) - (b.createdAt || 0));
+const isPlanned = (w) => w.status === "planned";
+const byWhen = (a, b) => a.date.localeCompare(b.date) || (a.time || "").localeCompare(b.time || "") || (a.createdAt || 0) - (b.createdAt || 0);
+const allOf = (cid) => state.workouts.filter((w) => w.clientId === cid);
+const plannedOf = (cid) => allOf(cid).filter(isPlanned).sort(byWhen);
+const plannedAll = () => state.workouts.filter((w) => isPlanned(w) && state.clients.some((c) => c.id === w.clientId)).sort(byWhen);
+const sessionsOf = (cid) => allOf(cid).filter((w) => !isPlanned(w)).sort(byDate); // проведённые тренировки + поздние отмены
+const workoutsOf = (cid) => allOf(cid).filter((w) => !isPlanned(w) && w.kind !== "cancel").sort((a, b) => a.date.localeCompare(b.date) || (a.createdAt || 0) - (b.createdAt || 0));
 const bestSet = (ex) => (ex?.sets || []).reduce((best, s) => { const w = num(s.w), r = num(s.r); if (w == null) return best; return !best || w > best.w || (w === best.w && (r || 0) > (best.r || 0)) ? { w, r } : best; }, null);
 
 function exerciseHistory(cid, name) {
@@ -139,6 +146,8 @@ function render() {
   const { view, id } = route();
   if (view === "c" && id) return renderClient(id);
   if (view === "w" && id) return renderWorkout(id);
+  if (view === "p" && id) return renderPlanned(id);
+  if (view === "s") return renderSchedule();
   renderClients();
 }
 
@@ -191,11 +200,12 @@ function lastWorkout(cid) { const ws = workoutsOf(cid); return ws[ws.length - 1]
 const PACKAGE_DAYS = { 5: 30, 10: 45 };
 const addDays = (iso, n) => { const d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
-function packagesOf(c) {
+function packagesOf(c, withPlanned = false) {
   const pk = (c.packages || []).map((p) => ({ ...p, expires: addDays(p.bought, +p.days || 30), used: 0 }))
     .sort((a, b) => a.bought.localeCompare(b.bought));
   const alloc = {};
-  for (const sess of sessionsOf(c.id)) {
+  const sessions = withPlanned ? [...sessionsOf(c.id), ...plannedOf(c.id)] : sessionsOf(c.id);
+  for (const sess of sessions) {
     const p = pk.find((x) => x.bought <= sess.date && sess.date <= x.expires && x.used < x.count);
     if (p) alloc[sess.id] = { p, n: ++p.used };
   }
@@ -220,13 +230,16 @@ function packagePanel(c) {
   const actions = `<div class="pk-actions"><button class="link" data-act="newPkg" data-id="${c.id}">+ Новый абонемент</button>
     ${p ? `<button class="link" data-act="lateCancel" data-id="${c.id}">Поздняя отмена</button>` : ""}</div>`;
   if (!p) return `<div class="panel"><div class="lbl">Абонемент</div><div class="meta" style="margin:6px 0 4px">Абонемента нет.</div>${actions}</div>`;
+  const planned = plannedOf(c.id).filter((w) => w.date >= today()).length;
+  const short = planned - Math.max(p.left, 0);
   const status = p.left <= 0 ? "Все занятия использованы" : p.expired ? `Срок истёк ${dateRu(p.expires)}` : `Действует ещё ${p.daysLeft} ${plural(p.daysLeft, "день", "дня", "дней")}`;
   const history = list.slice(0, -1).reverse();
   return `<div class="panel pk pk-${p.level}">
     <div class="pk-h"><span class="lbl">Абонемент</span><button class="link meta" data-act="editPkg" data-id="${c.id}" data-pid="${p.id}">куплен ${dateRu(p.bought)} · до ${dateRu(p.expires)} ✎</button></div>
     <div class="pk-n"><b>${Math.max(p.left, 0)}</b><span>${plural(Math.max(p.left, 0), "занятие осталось", "занятия осталось", "занятий осталось")} из ${p.count}</span></div>
     <div class="seg" aria-hidden="true">${Array.from({ length: p.count }, (_, i) => `<i class="${i < p.used ? "on" : ""}"></i>`).join("")}</div>
-    <div class="pk-status">${status}</div>
+    <div class="pk-status">${status}${planned ? ` · запланировано ${planned}` : ""}</div>
+    ${short > 0 && !p.expired ? `<div class="pk-warn-line">Запланировано больше, чем осталось в абонементе: не хватает ${short}. Пора продлить.</div>` : ""}
     ${actions}
     ${history.length ? `<details class="pk-hist"><summary>История абонементов · ${history.length}</summary>
       ${history.map((h) => `<button class="sess" data-act="editPkg" data-id="${c.id}" data-pid="${h.id}"><span>${dateRu(h.bought)} – ${dateRu(h.expires)}</span><span class="meta">${h.used} из ${h.count}${h.used < h.count && h.expired ? " · сгорело " + (h.count - h.used) : ""}</span></button>`).join("")}
@@ -311,6 +324,7 @@ function renderClients() {
 
   $app.innerHTML = `<main class="screen">
     <div class="navrow"><span class="meta">${dateRu(today())}</span><span style="display:flex;gap:14px;align-items:center">${syncBadge()}<button class="link" data-act="menu">Ещё</button></span></div>
+    ${todayBlock()}
     <h1>Клиенты</h1>
     <input class="input" id="search" type="search" placeholder="Поиск по имени" value="${esc(state.query)}">
     <div class="chips">
@@ -386,7 +400,8 @@ function renderClient(cid) {
       <div class="stat"><div class="lbl">Рекорды</div><div class="v">${records}</div></div>
     </div>
     ${c.notes ? `<div class="panel meta" style="white-space:pre-wrap">${esc(c.notes)}</div>` : ""}
-    <button class="btn block" data-act="newWorkout" data-id="${cid}">+ Новая тренировка</button>
+    <div class="btn-row"><button class="btn" data-act="newWorkout" data-id="${cid}">+ Тренировка</button><button class="btn outline" data-act="planSheet" data-id="${cid}">Запланировать</button></div>
+    ${clientPlanned(c)}
     ${sess.length ? `<div class="list">${sess.slice().reverse().map((w) => {
       const a = pk.alloc[w.id], no = a ? ` · ${a.n}/${a.p.count}` : "";
       return w.kind === "cancel"
@@ -394,6 +409,164 @@ function renderClient(cid) {
         : `<button class="sess" data-go="#/w/${w.id}"><span><b>${dateRu(w.date)}</b> · ${esc(w.title || "Тренировка")}</span><span class="meta">${(w.exercises || []).length} упр${no}</span></button>`;
     }).join("")}</div>` : ""}
   </main>`;
+}
+
+// ---------- расписание ----------
+function savePlanned(w) {
+  const { id, ...data } = w;
+  if (data.status == null) delete data.status;
+  setDoc(userDoc("workouts", id), { ...data, updatedAt: Date.now() }).catch(showError);
+  const i = state.workouts.findIndex((x) => x.id === id);
+  if (i >= 0) state.workouts[i] = { id, ...data }; else state.workouts.push({ id, ...data });
+}
+
+function forecastFor(w) {
+  const c = state.clients.find((x) => x.id === w.clientId);
+  if (!c?.packages?.length) return "";
+  const a = packagesOf(c, true).alloc[w.id];
+  return a ? `<span class="pk-tag pk-ok">${a.n}/${a.p.count}</span>` : `<span class="pk-tag pk-bad">вне абонемента</span>`;
+}
+
+function planRow(w, withName = true) {
+  const c = state.clients.find((x) => x.id === w.clientId);
+  const overdue = w.date < today();
+  return `<button class="plan-row ${overdue ? "overdue" : ""}" data-go="#/p/${w.id}">
+    <span class="plan-time">${esc(w.time || "—")}</span>
+    ${withName && c ? avatar(c) : ""}
+    <span class="plan-main"><b>${withName && c ? esc(c.name) : dayLabel(w.date)}</b>
+      <span class="sub">${overdue ? (withName ? `${dayLabel(w.date)} · не отмечено` : "не отмечено") : ""}</span></span>
+    ${forecastFor(w)}
+  </button>`;
+}
+
+function todayBlock() {
+  const all = plannedAll();
+  const overdue = all.filter((w) => w.date < today());
+  const todays = all.filter((w) => w.date === today());
+  const next = all.find((w) => w.date > today());
+  const nc = next && state.clients.find((x) => x.id === next.clientId);
+  return `<section class="panel today">
+    <div class="pk-h"><span class="lbl">Сегодня по расписанию</span><button class="link" data-go="#/s">Расписание ›</button></div>
+    ${overdue.length ? `<button class="pk-warn-line" data-go="#/s" style="text-align:left;width:100%">Не отмечено ${overdue.length} ${plural(overdue.length, "прошедшее занятие", "прошедших занятия", "прошедших занятий")} ›</button>` : ""}
+    ${todays.length ? `<div class="plan-list">${todays.map((w) => planRow(w)).join("")}</div>`
+      : `<div class="meta">${next ? `Сегодня свободно. Ближайшее: ${dayLabel(next.date).toLowerCase()} ${esc(next.time || "")} · ${esc(nc?.name || "")}` : "Пока ничего не запланировано."}</div>`}
+  </section>`;
+}
+
+function clientPlanned(c) {
+  const list = plannedOf(c.id);
+  if (!list.length) return "";
+  return `<div class="panel"><div class="lbl" style="margin-bottom:4px">Запланировано · ${list.length}</div>
+    <div class="plan-list">${list.map((w) => planRow(w, false)).join("")}</div></div>`;
+}
+
+function renderSchedule() {
+  const all = plannedAll();
+  const groups = {};
+  for (const w of all) (groups[w.date < today() ? "overdue" : w.date] ||= []).push(w);
+  const keys = Object.keys(groups).sort((a, b) => (a === "overdue" ? -1 : b === "overdue" ? 1 : a.localeCompare(b)));
+  $app.innerHTML = `<main class="screen">
+    <div class="navrow"><button class="link" data-go="#/">‹ Клиенты</button>${syncBadge()}</div>
+    <h1>Расписание</h1>
+    ${keys.length ? keys.map((k) => `<section class="day">
+      <div class="day-h ${k === "overdue" ? "overdue" : ""}">${k === "overdue" ? "Не отмечено" : dayLabel(k)}<span>${groups[k].length}</span></div>
+      <div class="list plan-list">${groups[k].map((w) => planRow(w)).join("")}</div></section>`).join("")
+      : `<div class="list"><div class="empty">Расписание пустое.<br>Нажми «+», чтобы запланировать тренировку.</div></div>`}
+  </main>
+  <button class="fab" data-act="planSheet" aria-label="Запланировать">+</button>`;
+}
+
+function renderPlanned(id) {
+  const w = state.workouts.find((x) => x.id === id);
+  if (!w || !isPlanned(w)) {
+    if (w) return go(`#/w/${w.id}`);
+    $app.innerHTML = `<main class="screen"><div class="navrow"><button class="link" data-go="#/s">‹ Расписание</button></div><div class="empty">${state.loaded ? "Запись не найдена." : "Загрузка…"}</div></main>`; return;
+  }
+  const c = state.clients.find((x) => x.id === w.clientId);
+  const a = c?.packages?.length ? packagesOf(c, true).alloc[w.id] : null;
+  const overdue = w.date < today();
+  $app.innerHTML = `<main class="screen">
+    <div class="navrow"><button class="link" data-go="#/s">‹ Расписание</button>${syncBadge()}<button class="link" data-go="#/c/${w.clientId}">Клиент</button></div>
+    <div class="hero">${c ? avatar(c) : ""}<div><h2>${esc(c?.name || "")}</h2><div class="meta">Запланированная тренировка</div></div></div>
+    <div class="panel plan-card">
+      <div class="lbl">${overdue ? "Прошло, не отмечено" : "Когда"}</div>
+      <div class="plan-when">${dayLabel(w.date)}<b>${esc(w.time || "")}</b></div>
+      ${c?.packages?.length ? `<div class="pk-line pk-${a ? "ok" : "bad"}">${a ? `Спишется ${a.n}-е занятие из ${a.p.count}` : "На эту дату нет действующего абонемента"}</div>` : ""}
+    </div>
+    <button class="btn block" data-act="startPlanned" data-wid="${w.id}">${overdue ? "Провели — заполнить тренировку" : "Начать тренировку"}</button>
+    <div class="btn-row"><button class="btn outline" data-act="movePlanned" data-wid="${w.id}">Перенести</button><button class="btn outline" data-act="cancelPlannedLate" data-wid="${w.id}">Поздняя отмена</button></div>
+    <div class="meta">«Поздняя отмена» спишет занятие с абонемента. Если отмена заранее, просто убери запись:</div>
+    <button class="link danger" data-act="dropPlanned" data-wid="${w.id}">Убрать из расписания без списания</button>
+  </main>`;
+}
+
+function startPlanned(id) {
+  const w = state.workouts.find((x) => x.id === id); if (!w) return;
+  const done = workoutsOf(w.clientId).find((x) => x.date === w.date);
+  if (done) { // в этот день тренировка уже записана — запись из расписания больше не нужна
+    deleteDoc(userDoc("workouts", id)).catch(showError);
+    state.workouts = state.workouts.filter((x) => x.id !== id);
+    return go(`#/w/${done.id}`);
+  }
+  const upd = { ...w, status: null, title: w.title || "", notes: w.notes || "", exercises: w.exercises?.length ? w.exercises : [{ name: "", sets: [{ w: "", r: "" }] }] };
+  savePlanned(upd); state.draft = null;
+  go(`#/w/${id}`);
+}
+
+function planSheet(cid, existing) {
+  const lastTime = existing?.time || plannedAll().filter((w) => w.clientId === cid).pop()?.time || "18:00";
+  const clientsSorted = state.clients.slice().sort((a, b) => a.name.localeCompare(b.name));
+  if (!clientsSorted.length) return showError({ message: "Сначала добавь клиента." });
+  const bg = sheet(`
+    <div class="navrow"><button type="button" class="link" data-close>Отмена</button><b>${existing ? "Перенести" : "Запланировать"}</b><button class="link" type="submit">Сохранить</button></div>
+    ${existing || cid ? "" : `<div class="field"><label class="lbl" for="pl-client">Клиент</label><select class="input" id="pl-client" name="client">${clientsSorted.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>`}
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px">
+      <div class="field"><label class="lbl" for="pl-date">Дата</label><input class="input" id="pl-date" name="date" type="date" required min="${existing ? "" : today()}" value="${existing?.date || addDays(today(), 1)}"></div>
+      <div class="field"><label class="lbl" for="pl-time">Время</label><input class="input" id="pl-time" name="time" type="time" required value="${esc(lastTime)}" step="900"></div>
+    </div>
+    ${existing ? "" : `<div class="field"><span class="lbl">Повторять</span><div class="chips" id="pl-rep">
+      <button type="button" class="chip on" data-rep="1">Один раз</button>
+      <button type="button" class="chip" data-rep="4">Каждую неделю · 4</button>
+      <button type="button" class="chip" data-rep="8">Каждую неделю · 8</button>
+    </div></div>`}
+    <div class="meta" id="pl-info"></div>
+  `, (fd) => {
+    const client = existing?.clientId || cid || fd.get("client");
+    const date = fd.get("date"), time = fd.get("time");
+    if (!client || !date) return false;
+    if (existing) { savePlanned({ ...existing, date, time }); render(); return; }
+    const reps = +(bg.querySelector("#pl-rep .on")?.dataset.rep || 1);
+    const taken = new Set(allOf(client).map((w) => w.date));
+    let added = 0;
+    for (let i = 0; i < reps; i++) {
+      const d = addDays(date, i * 7);
+      if (taken.has(d)) continue; // одна тренировка в день
+      savePlanned({ id: uid(), clientId: client, status: "planned", date: d, time, createdAt: Date.now() + i, exercises: [] });
+      added++;
+    }
+    if (added < reps) showError({ message: `Пропущено ${reps - added}: в эти дни у клиента уже есть запись.` });
+    render();
+  });
+  const info = bg.querySelector("#pl-info");
+  const upd = () => {
+    const client = existing?.clientId || cid || bg.querySelector("#pl-client")?.value;
+    const c = state.clients.find((x) => x.id === client);
+    const reps = +(bg.querySelector("#pl-rep .on")?.dataset.rep || 1);
+    const { current: p } = c ? packagesOf(c) : {};
+    const planned = c ? plannedOf(c.id).filter((w) => w.date >= today() && w.id !== existing?.id).length : 0;
+    const clash = c && allOf(c.id).some((w) => w.date === bg.querySelector("#pl-date").value && w.id !== existing?.id);
+    const lines = [];
+    if (clash) lines.push("⚠️ В этот день у клиента уже есть запись.");
+    if (p && !p.expired && p.left > 0) {
+      const after = p.left - planned - (existing ? 1 : reps);
+      lines.push(after >= 0 ? `В абонементе после этого останется ${after} ${plural(after, "свободное занятие", "свободных занятия", "свободных занятий")}.` : `⚠️ Не хватит абонемента: не хватает ${-after}.`);
+    } else if (c) lines.push("⚠️ У клиента нет действующего абонемента.");
+    info.textContent = lines.join(" ");
+  };
+  bg.querySelectorAll("[data-rep]").forEach((b) => b.addEventListener("click", () => { bg.querySelectorAll("[data-rep]").forEach((x) => x.classList.toggle("on", x === b)); upd(); }));
+  bg.querySelector("#pl-client")?.addEventListener("change", upd);
+  bg.querySelector("#pl-date").addEventListener("input", upd);
+  upd();
 }
 
 // ---------- тренировка ----------
@@ -511,7 +684,7 @@ function clientSheet(c) {
     const b = e.currentTarget;
     if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Точно удалить? Нажми ещё раз"; return; }
     const batch = writeBatch(db);
-    sessionsOf(c.id).forEach((w) => batch.delete(userDoc("workouts", w.id)));
+    allOf(c.id).forEach((w) => batch.delete(userDoc("workouts", w.id)));
     batch.delete(userDoc("clients", c.id));
     batch.commit().catch(showError);
     document.querySelector(".sheet-bg")?.remove();
@@ -578,10 +751,27 @@ document.addEventListener("click", (e) => {
       state.workouts = state.workouts.filter((x) => x.id !== t.dataset.wid);
       return render();
     case "editClient": return clientSheet(state.clients.find((c) => c.id === t.dataset.id));
+    case "planSheet": return planSheet(t.dataset.id || null);
+    case "startPlanned": return startPlanned(t.dataset.wid);
+    case "movePlanned": return planSheet(null, state.workouts.find((x) => x.id === t.dataset.wid));
+    case "cancelPlannedLate": {
+      const pw = state.workouts.find((x) => x.id === t.dataset.wid); if (!pw) return;
+      const upd = { ...pw, status: null, kind: "cancel", title: "Поздняя отмена" };
+      savePlanned(upd); return go(`#/c/${pw.clientId}`);
+    }
+    case "dropPlanned": {
+      if (t.dataset.sure !== "1") { t.dataset.sure = "1"; t.textContent = "Точно убрать из расписания? Нажми ещё раз"; return; }
+      const pw = state.workouts.find((x) => x.id === t.dataset.wid);
+      deleteDoc(userDoc("workouts", t.dataset.wid)).catch(showError);
+      state.workouts = state.workouts.filter((x) => x.id !== t.dataset.wid);
+      return pw ? go(`#/c/${pw.clientId}`) : go("#/");
+    }
     case "newWorkout": {
       // одна тренировка в день: если сегодняшняя уже есть — открываем её
       const existing = workoutsOf(t.dataset.id).find((x) => x.date === today());
       if (existing) return go(`#/w/${existing.id}`);
+      const plannedToday = plannedOf(t.dataset.id).find((x) => x.date === today());
+      if (plannedToday) return startPlanned(plannedToday.id);
       const id = uid();
       state.draft = { id, clientId: t.dataset.id, date: today(), title: "", notes: "", createdAt: Date.now(), exercises: [{ name: "", sets: [{ w: "", r: "" }] }] };
       flushDraft();
