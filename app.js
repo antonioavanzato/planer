@@ -11,7 +11,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "7";
+const APP_VERSION = "8";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -525,9 +525,11 @@ function menuSheet() {
     <div class="meta">Вошёл как ${esc(state.user.email)} · версия ${APP_VERSION}</div>
     <button type="button" class="btn block" id="exp">Экспорт в файл (бэкап)</button>
     <label class="btn ghost block" style="text-align:center">Импорт из файла<input type="file" accept="application/json" id="imp" hidden></label>
+    <button type="button" class="btn ghost block" id="upd">Обновить приложение</button>
     <button type="button" class="link danger" id="logout">Выйти</button>
   `, () => {});
   document.getElementById("exp").onclick = exportData;
+  document.getElementById("upd").onclick = hardUpdate;
   document.getElementById("imp").onchange = (e) => importData(e.target.files[0]);
   document.getElementById("logout").onclick = () => { document.querySelector(".sheet-bg")?.remove(); signOut(auth); };
 }
@@ -617,4 +619,28 @@ document.addEventListener("change", (e) => {
 });
 document.addEventListener("visibilitychange", () => { if (document.hidden) flushDraft(); });
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+// обновления: новая версия ставится сама, а страница перезагружается, как только та заработала
+if ("serviceWorker" in navigator) {
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((reg) => {
+    const check = () => reg.update().catch(() => {});
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) check(); });
+    setInterval(check, 30 * 60 * 1000);
+  }).catch(() => {});
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || reloading) return;
+    reloading = true; flushDraft(); location.reload();
+  });
+}
+
+async function hardUpdate() {
+  flushDraft();
+  try {
+    const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
+    await Promise.all(regs.map((r) => r.unregister()));
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+  } catch {}
+  location.replace(location.pathname + "?v=" + Date.now() + location.hash);
+}
