@@ -228,8 +228,8 @@ function renderClient(cid) {
   const hist = ex ? exerciseHistory(cid, ex) : [];
   const first = hist[0], lastH = hist[hist.length - 1];
   const gain = first && lastH ? lastH.w - first.w : 0;
-  const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
-  const weekTon = ws.filter((w) => w.date > weekAgo).reduce((t, w) => t + tonnage(w), 0);
+  const monthAgo = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+  const monthVisits = new Set(ws.filter((w) => w.date > monthAgo).map((w) => w.date)).size;
   const records = ws.reduce((n, w) => n + (w.exercises || []).filter((e) => isRecord(cid, w, e)).length, 0);
 
   const progress = ex ? `
@@ -250,7 +250,7 @@ function renderClient(cid) {
     ${progress}
     <div class="stats">
       <div class="stat"><div class="lbl">Вес тела</div><div class="v">${c.bodyStart || c.bodyNow ? `${fmt(num(c.bodyStart))}→${fmt(num(c.bodyNow))}` : "—"}</div></div>
-      <div class="stat"><div class="lbl">Тоннаж/нед</div><div class="v">${weekTon >= 1000 ? fmt(weekTon / 1000) + "т" : fmt(weekTon) + "кг"}</div></div>
+      <div class="stat"><div class="lbl">Визитов/мес</div><div class="v">${monthVisits}</div></div>
       <div class="stat"><div class="lbl">Рекорды</div><div class="v">${records}</div></div>
     </div>
     ${c.notes ? `<div class="panel meta" style="white-space:pre-wrap">${esc(c.notes)}</div>` : ""}
