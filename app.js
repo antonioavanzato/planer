@@ -2,16 +2,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/fireba
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentSingleTabManager,
-  collection, doc, onSnapshot, setDoc, deleteDoc, writeBatch,
+  collection, doc, onSnapshot, setDoc, getDoc, deleteDoc, writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js";
+import { getMessaging, getToken, deleteToken, isSupported as messagingSupported } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging.js";
+import { firebaseConfig, vapidKey } from "./firebase-config.js";
 
 // Firestore хранит копию данных на телефоне и досылает изменения, когда появляется сеть.
 const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "9";
+const APP_VERSION = "10";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -698,13 +699,78 @@ function menuSheet() {
     <div class="meta">Вошёл как ${esc(state.user.email)} · версия ${APP_VERSION}</div>
     <button type="button" class="btn block" id="exp">Экспорт в файл (бэкап)</button>
     <label class="btn ghost block" style="text-align:center">Импорт из файла<input type="file" accept="application/json" id="imp" hidden></label>
+    <button type="button" class="btn ghost block" id="notif">Уведомления</button>
     <button type="button" class="btn ghost block" id="upd">Обновить приложение</button>
     <button type="button" class="link danger" id="logout">Выйти</button>
   `, () => {});
   document.getElementById("exp").onclick = exportData;
   document.getElementById("upd").onclick = hardUpdate;
+  document.getElementById("notif").onclick = () => { document.querySelector(".sheet-bg")?.remove(); notifySheet(); };
   document.getElementById("imp").onchange = (e) => importData(e.target.files[0]);
   document.getElementById("logout").onclick = () => { document.querySelector(".sheet-bg")?.remove(); signOut(auth); };
+}
+
+// ---------- push-уведомления ----------
+// Телефон регистрируется в users/{uid}/devices/{deviceId}; рассылку делает scripts/notify.mjs по расписанию GitHub Actions.
+const DEVICE_KEY = "zhurnal-device-id";
+function deviceId() {
+  try { let id = localStorage.getItem(DEVICE_KEY); if (!id) { id = uid(); localStorage.setItem(DEVICE_KEY, id); } return id; }
+  catch { return "default"; }
+}
+
+async function notifySheet() {
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  const supported = "Notification" in window && "serviceWorker" in navigator && (await messagingSupported().catch(() => false));
+  const ref = userDoc("devices", deviceId());
+  const cur = (await getDoc(ref).catch(() => null))?.data() || null;
+  const on = !!cur?.token && window.Notification?.permission === "granted";
+  const morning = cur?.morning ?? "08:00", before = cur?.before ?? 60;
+  const reason = !standalone ? "Открой приложение с иконки на экране «Домой»: в Safari уведомления не работают."
+    : !supported ? "Этот телефон не поддерживает уведомления. Нужен iOS 16.4 или новее."
+    : !vapidKey ? "Уведомления ещё не настроены (нет ключа VAPID)." : "";
+  const bg = sheet(`
+    <div class="navrow"><button type="button" class="link" data-close>Закрыть</button><b>Уведомления</b><button class="link" type="submit" ${reason ? "hidden" : ""}>Сохранить</button></div>
+    ${reason ? `<div class="pk-warn-line">${reason}</div>` : `
+    <div class="meta">${on ? "Уведомления на этом телефоне включены." : "Включи, чтобы получать напоминания о тренировках."}</div>
+    <div class="field"><span class="lbl">Сводка на день</span><div class="chips" data-group="morning">
+      ${["", "07:00", "08:00", "09:00"].map((v) => `<button type="button" class="chip ${v === morning ? "on" : ""}" data-v="${v}">${v || "Выкл"}</button>`).join("")}
+    </div><div class="meta">Утром: кто сегодня придёт и у кого заканчивается абонемент.</div></div>
+    <div class="field"><span class="lbl">Напоминание перед тренировкой</span><div class="chips" data-group="before">
+      ${[0, 30, 60, 120].map((v) => `<button type="button" class="chip ${v === before ? "on" : ""}" data-v="${v}">${v ? (v < 60 ? v + " мин" : v / 60 + " ч") : "Выкл"}</button>`).join("")}
+    </div></div>
+    <div class="meta">Уведомления приходят с задержкой до 15 минут: их рассылает бесплатный сервер по расписанию.</div>
+    <div class="err" id="n-err"></div>
+    ${on ? `<button type="button" class="btn ghost block" id="n-test">Прислать тестовое</button><button type="button" class="link danger" id="n-off">Выключить на этом телефоне</button>` : ""}`}
+  `, (fd, el) => { enableNotifications(el); return false; });
+  bg.querySelectorAll("[data-group] .chip").forEach((b) => b.addEventListener("click", () => {
+    b.parentElement.querySelectorAll(".chip").forEach((x) => x.classList.toggle("on", x === b));
+  }));
+  if (!on && !reason) bg.querySelector("[type=submit]").textContent = "Включить";
+  bg.querySelector("#n-off")?.addEventListener("click", async () => {
+    try { await deleteToken(getMessaging(fb)); } catch {}
+    deleteDoc(ref).catch(showError); bg.remove(); showError({ message: "Уведомления выключены." });
+  });
+  bg.querySelector("#n-test")?.addEventListener("click", async () => {
+    setDoc(ref, { testRequestedAt: Date.now() }, { merge: true }).catch(showError);
+    showError({ message: "Тестовое уведомление придёт в течение 15 минут." });
+  });
+}
+
+async function enableNotifications(bg) {
+  const err = bg.querySelector("#n-err"); err.textContent = "";
+  const pick = (g, d) => bg.querySelector(`[data-group=${g}] .on`)?.dataset.v ?? d;
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") { err.textContent = "Уведомления запрещены. Разреши их: Настройки iPhone → Уведомления → Журнал."; return; }
+    const reg = await navigator.serviceWorker.ready;
+    const token = await getToken(getMessaging(fb), { vapidKey, serviceWorkerRegistration: reg });
+    await setDoc(userDoc("devices", deviceId()), {
+      token, tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      morning: pick("morning", "08:00"), before: +pick("before", 60),
+      ua: navigator.userAgent.slice(0, 200), updatedAt: Date.now(),
+    }, { merge: true });
+    bg.remove(); showError({ message: "Готово! Уведомления включены." });
+  } catch (e) { console.error(e); err.textContent = "Не получилось включить: " + (e.message || e); }
 }
 
 async function exportData() {

@@ -1,6 +1,6 @@
 // Кеш оболочки приложения, чтобы оно открывалось без интернета.
 // Данные кеширует сам Firestore (IndexedDB).
-const CACHE = "zhurnal-v9";
+const CACHE = "zhurnal-v10";
 const SHELL = ["./", "index.html", "style.css", "app.js", "firebase-config.js", "manifest.webmanifest", "icons/icon.svg", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -25,4 +25,27 @@ self.addEventListener("fetch", (e) => {
     // библиотеки Firebase и шрифты: сначала кеш
     e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request).then((r) => { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return r; })));
   }
+});
+
+// Push-уведомления (отправляет scripts/notify.mjs через Firebase Cloud Messaging)
+self.addEventListener("push", (e) => {
+  let j = {};
+  try { j = e.data ? e.data.json() : {}; } catch { j = { notification: { title: "Журнал Зала", body: e.data?.text() } }; }
+  const n = j.notification || {}, d = j.data || {};
+  e.waitUntil(self.registration.showNotification(n.title || d.title || "Журнал Зала", {
+    body: n.body || d.body || "",
+    icon: "icons/icon-192.png",
+    badge: "icons/icon-192.png",
+    tag: d.tag || undefined,
+    data: { url: d.url || "./" },
+  }));
+});
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = new URL(e.notification.data?.url || "./", self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    const win = list.find((w) => w.url.startsWith(self.registration.scope));
+    if (win) { win.navigate(url).catch(() => {}); return win.focus(); }
+    return self.clients.openWindow(url);
+  }));
 });
