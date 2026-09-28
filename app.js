@@ -12,7 +12,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "12";
+const APP_VERSION = "13";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -718,6 +718,8 @@ function deviceId() {
   catch { return "default"; }
 }
 
+const BELL_ICON = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
+
 async function notifySheet() {
   const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   const supported = "Notification" in window && "serviceWorker" in navigator && (await messagingSupported().catch(() => false));
@@ -740,7 +742,7 @@ async function notifySheet() {
     </div></div>
     <div class="meta">Уведомления могут приходить с задержкой до 5 минут.</div>
     <div class="err" id="n-err"></div>
-    <button type="submit" class="btn block">${on ? "Сохранить настройки" : "🔔 Включить уведомления"}</button>
+    <button type="submit" class="btn block">${on ? "Сохранить настройки" : `${BELL_ICON}Включить уведомления`}</button>
     ${on ? `<button type="button" class="btn ghost block" id="n-test">Прислать тестовое</button><button type="button" class="link danger" id="n-off">Выключить на этом телефоне</button>` : ""}`}
   `, (fd, el) => { enableNotifications(el); return false; });
   bg.querySelectorAll("[data-group] .chip").forEach((b) => b.addEventListener("click", () => {

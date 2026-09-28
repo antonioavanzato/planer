@@ -131,3 +131,4 @@ img.ava{object-fit:cover;padding:0;background:var(--line)}
 .plan-when{font:700 24px var(--display);text-transform:uppercase;display:flex;justify-content:space-between;align-items:baseline}
 .plan-when b{font:700 30px var(--mono);color:var(--accent)}
 select.input{appearance:none}
+.btn .ico{width:18px;height:18px;vertical-align:-3px;margin-right:8px}
