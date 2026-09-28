@@ -27,7 +27,7 @@ self.addEventListener("fetch", (e) => {
   }
 });
 
-// Push-уведомления (отправляет scripts/notify.mjs через Firebase Cloud Messaging)
+// Push-уведомления (отправляет gas/Code.gs через Firebase Cloud Messaging)
 self.addEventListener("push", (e) => {
   let j = {};
   try { j = e.data ? e.data.json() : {}; } catch { j = { notification: { title: "Журнал Зала", body: e.data?.text() } }; }

@@ -711,7 +711,7 @@ function menuSheet() {
 }
 
 // ---------- push-уведомления ----------
-// Телефон регистрируется в users/{uid}/devices/{deviceId}; рассылку делает scripts/notify.mjs по расписанию GitHub Actions.
+// Телефон регистрируется в users/{uid}/devices/{deviceId}; рассылку делает gas/Code.gs (Google Apps Script) каждые 5 минут.
 const DEVICE_KEY = "zhurnal-device-id";
 function deviceId() {
   try { let id = localStorage.getItem(DEVICE_KEY); if (!id) { id = uid(); localStorage.setItem(DEVICE_KEY, id); } return id; }
@@ -738,7 +738,7 @@ async function notifySheet() {
     <div class="field"><span class="lbl">Напоминание перед тренировкой</span><div class="chips" data-group="before">
       ${[0, 30, 60, 120].map((v) => `<button type="button" class="chip ${v === before ? "on" : ""}" data-v="${v}">${v ? (v < 60 ? v + " мин" : v / 60 + " ч") : "Выкл"}</button>`).join("")}
     </div></div>
-    <div class="meta">Уведомления приходят с задержкой до 15 минут: их рассылает бесплатный сервер по расписанию.</div>
+    <div class="meta">Уведомления могут приходить с задержкой до 5 минут.</div>
     <div class="err" id="n-err"></div>
     ${on ? `<button type="button" class="btn ghost block" id="n-test">Прислать тестовое</button><button type="button" class="link danger" id="n-off">Выключить на этом телефоне</button>` : ""}`}
   `, (fd, el) => { enableNotifications(el); return false; });
@@ -752,7 +752,7 @@ async function notifySheet() {
   });
   bg.querySelector("#n-test")?.addEventListener("click", async () => {
     setDoc(ref, { testRequestedAt: Date.now() }, { merge: true }).catch(showError);
-    showError({ message: "Тестовое уведомление придёт в течение 15 минут." });
+    showError({ message: "Тестовое уведомление придёт в течение 5 минут." });
   });
 }
 
