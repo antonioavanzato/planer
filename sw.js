@@ -1,6 +1,6 @@
 // Кеш оболочки приложения, чтобы оно открывалось без интернета.
 // Данные кеширует сам Firestore (IndexedDB).
-const CACHE = "zhurnal-v4";
+const CACHE = "zhurnal-v5";
 const SHELL = ["./", "index.html", "style.css", "app.js", "firebase-config.js", "manifest.webmanifest", "icons/icon.svg", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -19,7 +19,7 @@ self.addEventListener("fetch", (e) => {
   if (!isShell && !isStatic) return;
   if (isShell) {
     // свои файлы: сначала сеть (свежая версия), без сети — из кеша
-    e.respondWith(fetch(e.request).then((r) => { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return r; })
+    e.respondWith(fetch(e.request, { cache: "no-cache" }).then((r) => { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return r; })
       .catch(() => caches.match(e.request, { ignoreSearch: true }).then((r) => r || caches.match("index.html"))));
   } else {
     // библиотеки Firebase и шрифты: сначала кеш

@@ -11,6 +11,8 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
+const APP_VERSION = "5";
+
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
   "Подтягивания", "Жим ногами", "Румынская тяга", "Выпады", "Тяга верхнего блока",
@@ -165,12 +167,16 @@ const avatar = (c) => c.photo
 
 // сжимаем фото до квадратной аватарки ~320px, чтобы хранить прямо в карточке клиента
 async function photoToDataUrl(file, size = 320) {
-  const bmp = await createImageBitmap(file);
-  const side = Math.min(bmp.width, bmp.height);
-  const cv = document.createElement("canvas"); cv.width = cv.height = size;
-  cv.getContext("2d").drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, size, size);
-  bmp.close?.();
-  return cv.toDataURL("image/jpeg", 0.8);
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const w = img.naturalWidth, h = img.naturalHeight, side = Math.min(w, h);
+    const cv = document.createElement("canvas"); cv.width = cv.height = size;
+    cv.getContext("2d").drawImage(img, (w - side) / 2, (h - side) / 2, side, side, 0, 0, size, size);
+    return cv.toDataURL("image/jpeg", 0.8);
+  } finally { URL.revokeObjectURL(url); }
 }
 
 function lastWorkout(cid) { const ws = workoutsOf(cid); return ws[ws.length - 1]; }
@@ -349,8 +355,8 @@ function clientSheet(c) {
     <div class="navrow"><button type="button" class="link" data-close>Отмена</button><b>${c ? "Клиент" : "Новый клиент"}</b><button class="link" type="submit">Сохранить</button></div>
     <div class="photo-pick">
       <span id="f-ava">${c?.photo ? `<img class="ava" src="${esc(c.photo)}" alt="">` : `<div class="ava">${c ? esc(initials(c.name)) : "+"}</div>`}</span>
-      <label class="link" for="f-photo">${c?.photo ? "Сменить фото" : "Добавить фото"}</label>
-      <input type="file" accept="image/*" id="f-photo" hidden>
+      <button type="button" class="link" id="f-photobtn">${c?.photo ? "Сменить фото" : "Добавить фото"}</button>
+      <input type="file" accept="image/*" id="f-photo" class="visually-hidden" tabindex="-1">
       <button type="button" class="link danger" id="f-nophoto" ${c?.photo ? "" : "hidden"}>Убрать</button>
     </div>
     <div class="field"><label class="lbl" for="f-name">Имя и фамилия</label><input class="input" id="f-name" name="name" required value="${v("name")}"></div>
@@ -371,6 +377,7 @@ function clientSheet(c) {
     if (!c) go(`#/c/${id}`);
   });
   const pick = document.getElementById("f-photo"), ava = document.getElementById("f-ava"), noPhoto = document.getElementById("f-nophoto");
+  document.getElementById("f-photobtn").onclick = () => pick.click();
   pick.onchange = async () => {
     const f = pick.files[0]; if (!f) return;
     try { photo = await photoToDataUrl(f); ava.innerHTML = `<img class="ava" src="${photo}" alt="">`; noPhoto.hidden = false; }
@@ -392,7 +399,7 @@ function clientSheet(c) {
 function menuSheet() {
   sheet(`
     <div class="navrow"><button type="button" class="link" data-close>Закрыть</button><b>Меню</b><span></span></div>
-    <div class="meta">Вошёл как ${esc(state.user.email)}</div>
+    <div class="meta">Вошёл как ${esc(state.user.email)} · версия ${APP_VERSION}</div>
     <button type="button" class="btn block" id="exp">Экспорт в файл (бэкап)</button>
     <label class="btn ghost block" style="text-align:center">Импорт из файла<input type="file" accept="application/json" id="imp" hidden></label>
     <button type="button" class="link danger" id="logout">Выйти</button>
