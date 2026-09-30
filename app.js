@@ -12,7 +12,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "13";
+const APP_VERSION = "14";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -282,11 +282,11 @@ function packageSheet(c, pid) {
   bg.querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => { $("p-count").value = b.dataset.preset; $("p-days").value = PACKAGE_DAYS[b.dataset.preset]; sync(); }));
   ["p-count", "p-days", "p-date"].forEach((id) => $(id).addEventListener("input", sync));
   sync();
-  $("p-del")?.addEventListener("click", (e) => {
-    const b = e.currentTarget;
-    if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Точно удалить? Нажми ещё раз"; return; }
-    savePackages(c, c.packages.filter((p) => p.id !== cur.id));
+  $("p-del")?.addEventListener("click", () => {
+    const before = c.packages.slice();
+    savePackages(c, before.filter((p) => p.id !== cur.id));
     bg.remove();
+    undoToast("Абонемент удалён", () => savePackages(c, before));
   });
 }
 
@@ -302,6 +302,20 @@ function lateCancelSheet(c) {
     setDoc(userDoc("workouts", id), item).catch(showError);
     state.workouts.push({ id, ...item }); render();
   });
+}
+
+const TAB_ICONS = {
+  clients: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.7 3 2.5 3.5 5.2"/></svg>`,
+  schedule: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`,
+  more: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>`,
+};
+function tabBar(active) {
+  const overdue = plannedAll().filter((w) => w.date < today()).length;
+  return `<nav class="tabbar" aria-label="Разделы">
+    <button class="tab ${active === "clients" ? "on" : ""}" data-go="#/">${TAB_ICONS.clients}<span>Клиенты</span></button>
+    <button class="tab ${active === "schedule" ? "on" : ""}" data-go="#/s">${TAB_ICONS.schedule}<span>Расписание</span>${overdue ? `<i class="dot" aria-label="Есть неотмеченные"></i>` : ""}</button>
+    <button class="tab" data-act="menu">${TAB_ICONS.more}<span>Ещё</span></button>
+  </nav>`;
 }
 
 function renderClients() {
@@ -324,7 +338,7 @@ function renderClients() {
   }).join("");
 
   $app.innerHTML = `<main class="screen">
-    <div class="navrow"><span class="meta">${dateRu(today())}</span><span style="display:flex;gap:14px;align-items:center">${syncBadge()}<button class="link" data-act="menu">Ещё</button></span></div>
+    <div class="navrow"><span class="meta">${dateRu(today())}</span>${syncBadge()}</div>
     ${todayBlock()}
     <h1>Клиенты</h1>
     <input class="input" id="search" type="search" placeholder="Поиск по имени" value="${esc(state.query)}">
@@ -336,7 +350,8 @@ function renderClients() {
     </div>
     ${rows ? `<div class="list">${rows}</div>` : `<div class="list"><div class="empty">${state.clients.length ? "Никого не найдено." : state.loaded ? "Пока нет клиентов.<br>Нажми «+», чтобы добавить первого." : "Загрузка…"}</div></div>`}
   </main>
-  <button class="fab" data-act="newClient" aria-label="Новый клиент">+</button>`;
+  <button class="fab" data-act="newClient" aria-label="Новый клиент">+</button>
+  ${tabBar("clients")}`;
 
   const s = document.getElementById("search");
   s.oninput = () => { state.query = s.value; const pos = s.selectionStart; renderClients(); const n = document.getElementById("search"); n.focus(); n.setSelectionRange(pos, pos); };
@@ -467,14 +482,15 @@ function renderSchedule() {
   for (const w of all) (groups[w.date < today() ? "overdue" : w.date] ||= []).push(w);
   const keys = Object.keys(groups).sort((a, b) => (a === "overdue" ? -1 : b === "overdue" ? 1 : a.localeCompare(b)));
   $app.innerHTML = `<main class="screen">
-    <div class="navrow"><button class="link" data-go="#/">‹ Клиенты</button>${syncBadge()}</div>
+    <div class="navrow"><span class="meta">${dateRu(today())}</span>${syncBadge()}</div>
     <h1>Расписание</h1>
     ${keys.length ? keys.map((k) => `<section class="day">
       <div class="day-h ${k === "overdue" ? "overdue" : ""}">${k === "overdue" ? "Не отмечено" : dayLabel(k)}<span>${groups[k].length}</span></div>
       <div class="list plan-list">${groups[k].map((w) => planRow(w)).join("")}</div></section>`).join("")
       : `<div class="list"><div class="empty">Расписание пустое.<br>Нажми «+», чтобы запланировать тренировку.</div></div>`}
   </main>
-  <button class="fab" data-act="planSheet" aria-label="Запланировать">+</button>`;
+  <button class="fab" data-act="planSheet" aria-label="Запланировать">+</button>
+  ${tabBar("schedule")}`;
 }
 
 function renderPlanned(id) {
@@ -591,6 +607,24 @@ function pkgLine(c, w) {
     : `<div class="pk-line pk-bad">Вне абонемента: нет действующего пакета на эту дату</div>`;
 }
 
+// «Повторить прошлую»: показываем, пока в тренировке ничего не записано
+function repeatPanel(w) {
+  const blank = !(w.exercises || []).some((e) => e.name || (e.sets || []).some((x) => x.w || x.r));
+  if (!blank) return "";
+  const seen = new Set(), picks = [];
+  for (const x of workoutsOf(w.clientId).reverse()) {
+    if (x.id === w.id || x.date > w.date || !(x.exercises || []).some((e) => e.name)) continue;
+    const key = (x.title || "").trim().toLowerCase() || x.id;
+    if (seen.has(key)) continue;
+    seen.add(key); picks.push(x);
+    if (picks.length === 3) break;
+  }
+  if (!picks.length) return "";
+  return `<div class="panel repeat"><div class="lbl">Повторить прошлую тренировку</div>
+    <div class="repeat-list">${picks.map((x) => { const n = x.exercises.filter((e) => e.name).length; return `<button class="repeat-btn" data-act="repeatFrom" data-src="${x.id}"><b>${esc(x.title || "Тренировка")}</b><span>${dateRu(x.date)} · ${n} упр</span></button>`; }).join("")}</div>
+    <div class="meta">Подставятся те же упражнения и подходы. Серые цифры — прошлый результат: нажми на них, чтобы взять как есть.</div></div>`;
+}
+
 function renderWorkout(wid) {
   if (!state.draft || state.draft.id !== wid) {
     const w = state.workouts.find((x) => x.id === wid);
@@ -609,8 +643,8 @@ function renderWorkout(wid) {
         <button class="x" data-act="delEx" data-ei="${ei}" aria-label="Удалить упражнение">×</button></div>
       <table class="sets"><tr><th>Подх.</th><th>Прошлый</th><th>Кг</th><th>Повт.</th><th></th></tr>
       ${ex.sets.map((s, si) => { const p = prev?.sets?.[si]; return `<tr>
-        <td>${si + 1}</td><td class="prev">${p && num(p.w) != null ? `${fmt(num(p.w))}×${fmt(num(p.r))}` : "—"}</td>
-        <td><input inputmode="decimal" value="${esc(s.w)}" placeholder="${p ? esc(p.w) : ""}" data-set="${ei}:${si}:w" aria-label="Вес, подход ${si + 1}"></td>
+        <td>${si + 1}</td><td class="prev">${p && num(p.w) != null ? `<button class="prev-btn" data-act="usePrev" data-ei="${ei}" data-si="${si}" aria-label="Взять прошлый результат">${fmt(num(p.w))}×${fmt(num(p.r))}</button>` : "—"}</td>
+        <td><div class="stepper"><button class="st" data-act="step" data-ei="${ei}" data-si="${si}" data-d="-2.5" aria-label="Минус 2,5 кг">−</button><input inputmode="decimal" value="${esc(s.w)}" placeholder="${p ? esc(p.w) : ""}" data-set="${ei}:${si}:w" aria-label="Вес, подход ${si + 1}"><button class="st" data-act="step" data-ei="${ei}" data-si="${si}" data-d="2.5" aria-label="Плюс 2,5 кг">+</button></div></td>
         <td><input inputmode="numeric" value="${esc(s.r)}" placeholder="${p ? esc(p.r) : ""}" data-set="${ei}:${si}:r" aria-label="Повторы, подход ${si + 1}"></td>
         <td><button class="x" data-act="delSet" data-ei="${ei}" data-si="${si}" aria-label="Удалить подход">×</button></td></tr>`; }).join("")}
       </table>
@@ -623,12 +657,37 @@ function renderWorkout(wid) {
     <input class="input" id="wtitle" value="${esc(w.title)}" placeholder="Название, например «Ноги»" style="font:700 24px var(--display);text-transform:uppercase">
     ${pkgLine(c, w)}
     <div style="display:flex;gap:8px;align-items:center"><span class="lbl">Дата</span><input class="input" id="wdate" type="date" value="${esc(w.date)}" style="width:auto"></div>
+    ${repeatPanel(w)}
     ${exHtml}
     <button class="btn ghost block" data-act="addEx">+ Добавить упражнение</button>
     <textarea class="input" id="wnotes" rows="2" placeholder="Заметки: самочувствие, техника…">${esc(w.notes || "")}</textarea>
     <button class="link danger" data-act="delWorkout">Удалить тренировку</button>
     <datalist id="exnames">${allNames.map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
   </main>`;
+}
+
+// ---------- «Удалено · Отменить» ----------
+let toastTimer = null;
+function undoToast(text, onUndo) {
+  document.getElementById("toast")?.remove(); clearTimeout(toastTimer);
+  const el = document.createElement("div");
+  el.id = "toast"; el.className = "toast"; el.setAttribute("role", "status");
+  el.innerHTML = `<span>${esc(text)}</span><button type="button" class="link">Отменить</button>`;
+  el.querySelector("button").onclick = () => { clearTimeout(toastTimer); el.remove(); onUndo(); };
+  document.body.append(el);
+  toastTimer = setTimeout(() => el.remove(), 6000);
+}
+function removeWorkoutDoc(id) {
+  const w = state.workouts.find((x) => x.id === id);
+  deleteDoc(userDoc("workouts", id)).catch(showError);
+  state.workouts = state.workouts.filter((x) => x.id !== id);
+  return w;
+}
+function restoreWorkoutDoc(w) {
+  if (!w) return;
+  const { id, ...data } = w;
+  setDoc(userDoc("workouts", id), data).catch(showError);
+  if (!state.workouts.some((x) => x.id === id)) state.workouts.push(w);
 }
 
 // ---------- листы (формы) ----------
@@ -681,15 +740,21 @@ function clientSheet(c) {
     catch { showError({ message: "Не получилось открыть фото. Попробуй другое." }); }
   };
   noPhoto.onclick = () => { photo = ""; ava.innerHTML = `<div class="ava">${c ? esc(initials(c.name)) : "+"}</div>`; noPhoto.hidden = true; };
-  document.getElementById("delClient")?.addEventListener("click", (e) => {
-    const b = e.currentTarget;
-    if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Точно удалить? Нажми ещё раз"; return; }
+  document.getElementById("delClient")?.addEventListener("click", () => {
+    const client = structuredClone(c), sessions = structuredClone(allOf(c.id));
     const batch = writeBatch(db);
-    allOf(c.id).forEach((w) => batch.delete(userDoc("workouts", w.id)));
+    sessions.forEach((w) => batch.delete(userDoc("workouts", w.id)));
     batch.delete(userDoc("clients", c.id));
     batch.commit().catch(showError);
     document.querySelector(".sheet-bg")?.remove();
     go("#/");
+    undoToast(`Клиент удалён: ${client.name}`, () => {
+      const b = writeBatch(db);
+      const { id, ...cdata } = client;
+      b.set(userDoc("clients", id), cdata);
+      sessions.forEach(({ id: wid, ...wdata }) => b.set(userDoc("workouts", wid), wdata));
+      b.commit().catch(showError);
+    });
   });
 }
 
@@ -813,11 +878,11 @@ document.addEventListener("click", (e) => {
     case "newPkg": return packageSheet(state.clients.find((c) => c.id === t.dataset.id));
     case "editPkg": return packageSheet(state.clients.find((c) => c.id === t.dataset.id), t.dataset.pid);
     case "lateCancel": return lateCancelSheet(state.clients.find((c) => c.id === t.dataset.id));
-    case "delCancel":
-      if (t.dataset.sure !== "1") { t.dataset.sure = "1"; t.textContent = "удалить?"; return; }
-      deleteDoc(userDoc("workouts", t.dataset.wid)).catch(showError);
-      state.workouts = state.workouts.filter((x) => x.id !== t.dataset.wid);
+    case "delCancel": {
+      const gone = removeWorkoutDoc(t.dataset.wid);
+      undoToast("Поздняя отмена удалена", () => { restoreWorkoutDoc(gone); render(); });
       return render();
+    }
     case "editClient": return clientSheet(state.clients.find((c) => c.id === t.dataset.id));
     case "planSheet": return planSheet(t.dataset.id || null);
     case "startPlanned": return startPlanned(t.dataset.wid);
@@ -828,10 +893,8 @@ document.addEventListener("click", (e) => {
       savePlanned(upd); return go(`#/c/${pw.clientId}`);
     }
     case "dropPlanned": {
-      if (t.dataset.sure !== "1") { t.dataset.sure = "1"; t.textContent = "Точно убрать из расписания? Нажми ещё раз"; return; }
-      const pw = state.workouts.find((x) => x.id === t.dataset.wid);
-      deleteDoc(userDoc("workouts", t.dataset.wid)).catch(showError);
-      state.workouts = state.workouts.filter((x) => x.id !== t.dataset.wid);
+      const pw = removeWorkoutDoc(t.dataset.wid);
+      undoToast("Убрано из расписания", () => { restoreWorkoutDoc(pw); render(); });
       return pw ? go(`#/c/${pw.clientId}`) : go("#/");
     }
     case "newWorkout": {
@@ -846,14 +909,50 @@ document.addEventListener("click", (e) => {
       return go(`#/w/${id}`);
     }
     case "addEx": w.exercises.push({ name: "", sets: [{ w: "", r: "" }] }); break;
-    case "delEx": w.exercises.splice(ei, 1); break;
+    case "delEx": {
+      const [gone] = w.exercises.splice(ei, 1);
+      undoToast(`Упражнение удалено${gone?.name ? ": " + gone.name : ""}`, () => {
+        if (state.draft?.id !== w.id) return;
+        w.exercises.splice(ei, 0, gone); saveDraftSoon(); renderWorkout(w.id);
+      });
+      break;
+    }
     case "addSet": { const s = w.exercises[ei].sets; const last = s[s.length - 1]; s.push({ w: last?.w ?? "", r: last?.r ?? "" }); break; }
-    case "delSet": w.exercises[ei].sets.splice(si, 1); break;
-    case "delWorkout":
-      if (t.dataset.sure !== "1") { t.dataset.sure = "1"; t.textContent = "Точно удалить? Нажми ещё раз"; return; }
-      deleteDoc(userDoc("workouts", w.id)).catch(showError);
-      state.workouts = state.workouts.filter((x) => x.id !== w.id);
-      { const cid = w.clientId; state.draft = null; return go(`#/c/${cid}`); }
+    case "delSet": {
+      const [gone] = w.exercises[ei].sets.splice(si, 1);
+      undoToast(`Подход ${si + 1} удалён`, () => {
+        if (state.draft?.id !== w.id || !w.exercises[ei]) return;
+        w.exercises[ei].sets.splice(si, 0, gone); saveDraftSoon(); renderWorkout(w.id);
+      });
+      break;
+    }
+    case "delWorkout": {
+      clearTimeout(saveTimer);
+      const snapshot = structuredClone(w);
+      removeWorkoutDoc(w.id);
+      state.draft = null;
+      undoToast("Тренировка удалена", () => { restoreWorkoutDoc(snapshot); render(); });
+      return go(`#/c/${snapshot.clientId}`);
+    }
+    case "usePrev": { // касание серой подсказки «прошлый раз» переносит её в подход
+      const ex = w.exercises[ei], p = previousExercise(w.clientId, w, ex.name)?.sets?.[si];
+      if (!p) return;
+      ex.sets[si] = { w: p.w ?? "", r: p.r ?? "" };
+      break;
+    }
+    case "step": { // ±2,5 кг; пустое поле считается от прошлого раза
+      const ex = w.exercises[ei], set = ex.sets[si];
+      const base = num(set.w) ?? num(previousExercise(w.clientId, w, ex.name)?.sets?.[si]?.w) ?? 0;
+      const v = Math.max(0, Math.round((base + +t.dataset.d) * 100) / 100);
+      set.w = String(v).replace(".", ",");
+      break;
+    }
+    case "repeatFrom": {
+      const src = state.workouts.find((x) => x.id === t.dataset.src); if (!src) return;
+      w.exercises = (src.exercises || []).filter((e) => e.name).map((e) => ({ name: e.name, sets: (e.sets?.length ? e.sets : [{}]).map(() => ({ w: "", r: "" })) }));
+      if (!w.title) w.title = src.title || "";
+      break;
+    }
     default: return;
   }
   saveDraftSoon(); renderWorkout(w.id);

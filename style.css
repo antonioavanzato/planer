@@ -132,3 +132,32 @@ img.ava{object-fit:cover;padding:0;background:var(--line)}
 .plan-when b{font:700 30px var(--mono);color:var(--accent)}
 select.input{appearance:none}
 .btn .ico{width:18px;height:18px;vertical-align:-3px;margin-right:8px}
+
+/* нижняя панель вкладок */
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:space-around;background:color-mix(in srgb,var(--ground) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px 8px calc(env(safe-area-inset-bottom,0px) + 6px)}
+.tab{position:relative;flex:1;max-width:140px;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;color:var(--muted);font-size:11px;font-weight:600;padding:4px 0}
+.tab svg{width:24px;height:24px}
+.tab.on{color:var(--accent)}
+.tab .dot{position:absolute;top:3px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--bad)}
+body:has(.tabbar) .screen{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 170px)}
+body:has(.tabbar) .fab{bottom:calc(env(safe-area-inset-bottom,0px) + 84px)}
+
+/* вес: −/+ 2,5 кг */
+.stepper{display:flex;align-items:center;gap:3px}
+.stepper input{width:58px}
+.st{width:30px;height:34px;border:0;border-radius:8px;background:var(--accent-soft);color:var(--accent);font:700 18px/1 var(--body);padding:0}
+.st:active{transform:scale(.94)}
+.prev-btn{border:0;background:none;padding:6px 2px;font:inherit;color:inherit;text-decoration:underline dotted;text-underline-offset:3px}
+
+/* повторить прошлую */
+.repeat{display:flex;flex-direction:column;gap:8px}
+.repeat-list{display:flex;flex-direction:column;gap:6px}
+.repeat-btn{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1.5px solid var(--accent);border-radius:12px;background:transparent;padding:10px 12px;text-align:left}
+.repeat-btn b{font-weight:700}
+.repeat-btn span{font-size:12px;color:var(--muted)}
+
+/* плашка «Отменить» */
+.toast{position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:30;max-width:528px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--ink);color:var(--ground);border-radius:14px;padding:12px 14px;font-size:14px;box-shadow:0 10px 30px -10px rgba(0,0,0,.4)}
+.toast .link{color:var(--accent);font-size:14px}
+body:has(.tabbar) .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 80px)}
+.sets td:nth-child(4) input{width:52px}
