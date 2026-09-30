@@ -12,7 +12,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "17";
+const APP_VERSION = "18";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -326,10 +326,12 @@ const TAB_ICONS = {
 };
 // Док внизу: пилюля с вкладками + отдельная круглая кнопка «+» на одном уровне.
 function dock(active, fabAct, fabLabel) {
-  const overdue = plannedAll().filter((w) => w.date < today()).length;
+  const all = plannedAll();
+  const overdue = all.filter((w) => w.date < today()).length;
+  const badge = overdue + all.filter((w) => w.date === today()).length;
   return `<div class="dock ${dockState.hidden ? "is-hidden" : ""}" id="dock"><nav class="tabbar" aria-label="Разделы">
     <button class="tab ${active === "clients" ? "on" : ""}" data-go="#/">${TAB_ICONS.clients}<span>Клиенты</span></button>
-    <button class="tab ${active === "schedule" ? "on" : ""}" data-go="#/s">${TAB_ICONS.schedule}<span>Расписание</span>${overdue ? `<i class="dot" aria-label="Есть неотмеченные"></i>` : ""}</button>
+    <button class="tab ${active === "schedule" ? "on" : ""}" data-go="#/s">${TAB_ICONS.schedule}<span>Расписание</span>${badge ? `<i class="badge ${overdue ? "bad" : ""}" aria-label="Записей: ${badge}">${badge > 99 ? "99+" : badge}</i>` : ""}</button>
     <button class="tab" data-act="menu">${TAB_ICONS.more}<span>Ещё</span></button>
   </nav><button class="fab" data-act="${fabAct}" aria-label="${fabLabel}">+</button></div>`;
 }
@@ -485,27 +487,63 @@ function forecastFor(w) {
 
 function planRow(w, withName = true) {
   const c = state.clients.find((x) => x.id === w.clientId);
-  const overdue = w.date < today();
+  const overdue = w.date < today() || (w.date === today() && w.time && atOf(w) < Date.now() - 60 * 60000);
   return `<button class="plan-row ${overdue ? "overdue" : ""}" data-go="#/p/${w.id}">
     <span class="plan-time">${esc(w.time || "—")}</span>
     ${withName && c ? avatar(c) : ""}
     <span class="plan-main"><b>${withName && c ? esc(c.name) : dayLabel(w.date)}</b>
-      <span class="sub">${overdue ? (withName ? `${dayLabel(w.date)} · не отмечено` : "не отмечено") : ""}</span></span>
+      <span class="sub">${overdue ? (w.date === today() ? "прошло · не отмечено" : withName ? `${dayLabel(w.date)} · не отмечено` : "не отмечено") : ""}</span></span>
     ${forecastFor(w)}
   </button>`;
 }
+
+const atOf = (w) => new Date(`${w.date}T${w.time || "00:00"}:00`).getTime();
+function untilText(at) {
+  const m = Math.round((at - Date.now()) / 60000);
+  if (m <= -60) return "уже прошла";
+  if (m <= 0) return "идёт сейчас";
+  if (m < 60) return `через ${m} мин`;
+  const h = Math.floor(m / 60), r = m % 60;
+  return `через ${h} ч${r ? ` ${r} мин` : ""}`;
+}
+// обновляем «через N мин» раз в полминуты, не перерисовывая экран
+setInterval(() => document.querySelectorAll("[data-at]").forEach((el) => { el.textContent = untilText(+el.dataset.at); }), 30000);
 
 function todayBlock() {
   const all = plannedAll();
   const overdue = all.filter((w) => w.date < today());
   const todays = all.filter((w) => w.date === today());
-  const next = all.find((w) => w.date > today());
+  const doneToday = state.workouts.filter((w) => w.date === today() && !isPlanned(w) && w.kind !== "cancel" && state.clients.some((c) => c.id === w.clientId));
+  const total = todays.length + doneToday.length;
+  const next = todays.find((w) => atOf(w) > Date.now() - 60 * 60000) || null;
+  const rest = todays.filter((w) => w !== next);
+  const ending = state.clients.filter((c) => ["warn", "bad"].includes(packagesOf(c).current?.level));
+  const upcoming = all.find((w) => w.date > today());
+  const uc = upcoming && state.clients.find((x) => x.id === upcoming.clientId);
   const nc = next && state.clients.find((x) => x.id === next.clientId);
-  return `<section class="panel today">
-    <div class="pk-h"><span class="lbl">Сегодня по расписанию</span><button class="link" data-go="#/s">Расписание${CHEV_R}</button></div>
-    ${overdue.length ? `<button class="pk-warn-line" data-go="#/s" style="text-align:left;width:100%">Не отмечено ${overdue.length} ${plural(overdue.length, "прошедшее занятие", "прошедших занятия", "прошедших занятий")}${CHEV_R}</button>` : ""}
-    ${todays.length ? `<div class="plan-list">${todays.map((w) => planRow(w)).join("")}</div>`
-      : `<div class="meta">${next ? `Сегодня свободно. Ближайшее: ${dayLabel(next.date).toLowerCase()} ${esc(next.time || "")} · ${esc(nc?.name || "")}` : "Пока ничего не запланировано."}</div>`}
+  const hr = new Date().getHours();
+  const greet = hr < 12 ? "Доброе утро" : hr < 18 ? "Добрый день" : "Добрый вечер";
+
+  const chips = [
+    overdue.length ? `<button class="st-chip bad" data-go="#/s">Не отмечено · ${overdue.length}</button>` : "",
+    ending.length ? `<button class="st-chip warn" data-filter="pkg">Абонемент заканчивается · ${ending.length}</button>` : "",
+  ].join("");
+
+  return `<section class="status">
+    <div class="st-top">
+      <div><span class="lbl">${greet}</span><div class="st-title">${total ? `${total} ${plural(total, "тренировка", "тренировки", "тренировок")} сегодня` : "Сегодня свободно"}</div></div>
+      ${total ? `<div class="st-ring" style="--p:${doneToday.length / total}"><span>${doneToday.length}/${total}</span></div>` : ""}
+    </div>
+    ${next && nc ? `<div class="st-next">
+      <button class="st-next-main" data-go="#/p/${next.id}">
+        ${avatar(nc)}
+        <span class="st-next-txt"><small>Следующая · ${esc(next.time || "")}</small><b>${esc(nc.name)}</b><em data-at="${atOf(next)}">${untilText(atOf(next))}</em></span>
+      </button>
+      <button class="link primary" data-act="startPlanned" data-wid="${next.id}">Начать</button>
+    </div>` : !total && upcoming && uc ? `<div class="meta">Ближайшая: ${dayLabel(upcoming.date).toLowerCase()} в ${esc(upcoming.time || "")} · ${esc(uc.name)}</div>`
+      : !total ? `<div class="meta">В расписании пока пусто.</div>` : `<div class="meta">На сегодня всё запланированное проведено 💪</div>`}
+    ${rest.length ? `<div class="plan-list">${rest.map((w) => planRow(w)).join("")}</div>` : ""}
+    ${chips ? `<div class="st-chips">${chips}</div>` : ""}
   </section>`;
 }
 
@@ -731,16 +769,61 @@ function restoreWorkoutDoc(w) {
 
 // ---------- листы (формы) ----------
 function sheet(html, onSubmit) {
+  document.querySelectorAll(".sheet-bg").forEach((x) => x.remove());
   const bg = document.createElement("div");
   bg.className = "sheet-bg";
-  bg.innerHTML = `<form class="sheet">${html}</form>`;
-  bg.onclick = (e) => { if (e.target === bg) bg.remove(); };
+  bg.innerHTML = `<form class="sheet"><button type="button" class="grab" aria-label="Закрыть"><i></i></button>${html}</form>`;
+  bg.close = () => closeSheet(bg);
+  bg.onclick = (e) => { if (e.target === bg) closeSheet(bg); };
   const form = bg.querySelector("form");
-  form.onsubmit = (e) => { e.preventDefault(); if (onSubmit(new FormData(form), bg) !== false) bg.remove(); };
-  form.querySelector("[data-close]")?.addEventListener("click", () => bg.remove());
+  form.onsubmit = (e) => { e.preventDefault(); if (onSubmit(new FormData(form), bg) !== false) closeSheet(bg); };
+  form.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => closeSheet(bg)));
   document.body.append(bg);
+  sheetGestures(bg, form);
   form.querySelector("[data-autofocus]")?.focus();
   return bg;
+}
+
+function closeSheet(bg) {
+  if (!bg || bg.dataset.closing) return;
+  bg.dataset.closing = "1";
+  const el = bg.querySelector(".sheet");
+  el.style.transition = "transform .28s cubic-bezier(.4,0,1,1)";
+  el.style.transform = "translate3d(0,105%,0)";
+  bg.classList.add("closing");
+  setTimeout(() => bg.remove(), 280);
+}
+
+// Смахнуть окно вниз: тянем за ручку/шапку или за любое место, когда содержимое прокручено к началу.
+function sheetGestures(bg, el) {
+  el.querySelector(".grab").addEventListener("click", () => closeSheet(bg));
+  let y0 = null, dy = 0, t0 = 0, drag = false;
+  el.addEventListener("touchstart", (e) => {
+    const onHandle = e.target.closest(".grab, .navrow");
+    if (!onHandle && (el.scrollTop > 0 || e.target.closest("input, textarea, select, .chips"))) { y0 = null; return; }
+    y0 = e.touches[0].clientY; t0 = Date.now(); dy = 0; drag = false;
+  }, { passive: true });
+  el.addEventListener("touchmove", (e) => {
+    if (y0 == null) return;
+    dy = e.touches[0].clientY - y0;
+    if (dy <= 0 && !drag) return;
+    if (!drag && dy < 6) return;
+    drag = true;
+    e.preventDefault();
+    el.style.transition = "none";
+    el.style.transform = `translate3d(0,${Math.max(0, dy)}px,0)`;
+    bg.style.setProperty("--dim", String(Math.max(0, 1 - dy / 500)));
+  }, { passive: false });
+  const end = () => {
+    if (y0 == null) return;
+    y0 = null;
+    if (!drag) return;
+    const v = dy / Math.max(1, Date.now() - t0);
+    if (dy > 110 || v > 0.55) closeSheet(bg);
+    else { el.style.transition = "transform .3s cubic-bezier(.22,1,.36,1)"; el.style.transform = ""; bg.style.removeProperty("--dim"); }
+  };
+  el.addEventListener("touchend", end);
+  el.addEventListener("touchcancel", end);
 }
 
 function clientSheet(c) {
@@ -785,7 +868,7 @@ function clientSheet(c) {
     sessions.forEach((w) => batch.delete(userDoc("workouts", w.id)));
     batch.delete(userDoc("clients", c.id));
     batch.commit().catch(showError);
-    document.querySelector(".sheet-bg")?.remove();
+    document.querySelector(".sheet-bg")?.close?.();
     go("#/");
     undoToast(`Клиент удалён: ${client.name}`, () => {
       const b = writeBatch(db);
@@ -797,21 +880,35 @@ function clientSheet(c) {
   });
 }
 
+const MENU_ICONS = {
+  bell: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
+  down: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>`,
+  up: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V5M7 10l5-5 5 5M5 20h14"/></svg>`,
+  sync: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 0 1-14.3 4.9M4 12a8 8 0 0 1 14.3-4.9"/><path d="M18.5 3v4.2h-4.2M5.5 21v-4.2h4.2"/></svg>`,
+  out: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg>`,
+};
+const menuRow = (id, icon, label, sub = "", tag = "button") => `<${tag} ${tag === "button" ? 'type="button"' : ""} class="menu-row" id="${id}">
+  <span class="menu-ico">${MENU_ICONS[icon]}</span><span class="menu-txt"><b>${label}</b>${sub ? `<small>${sub}</small>` : ""}</span>${CHEV_R}</${tag}>`;
+
 function menuSheet() {
+  const email = state.user.email || "";
   sheet(`
-    <div class="navrow"><button type="button" class="link quiet" data-close>Закрыть</button><b>Меню</b><span></span></div>
-    <div class="meta">Вошёл как ${esc(state.user.email)} · версия ${APP_VERSION}</div>
-    <button type="button" class="btn block" id="exp">Экспорт в файл (бэкап)</button>
-    <label class="btn ghost block" style="text-align:center">Импорт из файла<input type="file" accept="application/json" id="imp" hidden></label>
-    <button type="button" class="btn ghost block" id="notif">Уведомления</button>
-    <button type="button" class="btn ghost block" id="upd">Обновить приложение</button>
-    <button type="button" class="link danger" id="logout">Выйти</button>
-  `, () => {});
+    <div class="navrow center"><b>Меню</b></div>
+    <div class="menu-me"><span class="ava">Я</span><span class="menu-txt"><b>${esc(email)}</b><small>Журнал Зала · версия ${APP_VERSION}</small></span></div>
+    <div class="menu-group">
+      ${menuRow("notif", "bell", "Уведомления", "Сводка на день и напоминания")}
+      ${menuRow("exp", "down", "Экспорт в файл", "Бэкап всех клиентов и тренировок")}
+      <label class="menu-row" for="imp"><span class="menu-ico">${MENU_ICONS.up}</span><span class="menu-txt"><b>Импорт из файла</b><small>Восстановить из бэкапа</small></span>${CHEV_R}</label>
+      ${menuRow("upd", "sync", "Обновить приложение", "Если что-то выглядит по-старому")}
+    </div>
+    <input type="file" accept="application/json" id="imp" class="visually-hidden" tabindex="-1">
+    <div class="menu-group"><button type="button" class="menu-row danger" id="logout"><span class="menu-ico">${MENU_ICONS.out}</span><span class="menu-txt"><b>Выйти</b></span></button></div>
+  `, () => false);
   document.getElementById("exp").onclick = exportData;
   document.getElementById("upd").onclick = hardUpdate;
   document.getElementById("notif").onclick = () => { document.querySelector(".sheet-bg")?.remove(); notifySheet(); };
   document.getElementById("imp").onchange = (e) => importData(e.target.files[0]);
-  document.getElementById("logout").onclick = () => { document.querySelector(".sheet-bg")?.remove(); signOut(auth); };
+  document.getElementById("logout").onclick = () => { document.querySelector(".sheet-bg")?.close?.(); signOut(auth); };
 }
 
 // ---------- push-уведомления ----------
@@ -898,7 +995,7 @@ async function importData(file) {
       items.slice(i, i + 400).forEach(([col, { id, ...rest }]) => batch.set(userDoc(col, id), rest));
       batch.commit().catch(showError);
     }
-    document.querySelector(".sheet-bg")?.remove();
+    document.querySelector(".sheet-bg")?.close?.();
     showError({ message: `Импортировано: ${data.clients.length} клиентов, ${data.workouts.length} тренировок.` });
   } catch (e) { showError(e); }
 }
