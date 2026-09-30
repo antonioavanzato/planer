@@ -273,3 +273,81 @@ body:has(.dock) .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 90px)}
 input[type=date],input[type=time]{min-width:0;max-width:100%;display:block;-webkit-appearance:none;appearance:none;text-align:left}
 input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left;margin:0}
 .field{min-width:0}
+
+/* крестик «стереть» */
+.clr-wrap{position:relative;display:block;width:100%;min-width:0}
+.clr-wrap.is-inline{display:flex;flex:1;min-width:0}
+.clr-wrap > .input{padding-right:40px}
+.clr-wrap.is-inline > input{padding-right:30px;width:100%}
+.clr{position:absolute;top:50%;right:8px;transform:translateY(-50%) scale(.6);opacity:0;pointer-events:none;
+  width:24px;height:24px;border:0;border-radius:50%;padding:0;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--muted) 30%,transparent);color:var(--ink);transition:opacity .15s ease,transform .15s ease}
+.clr svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round}
+.clr-wrap.is-area .clr{top:12px;transform:scale(.6)}
+.clr-wrap.has .clr{opacity:1;pointer-events:auto;transform:translateY(-50%) scale(1)}
+.clr-wrap.is-area.has .clr{transform:scale(1)}
+.clr:active{background:color-mix(in srgb,var(--muted) 50%,transparent)}
+input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+
+/* котик */
+.cat-lane{position:absolute;left:16px;right:16px;max-width:528px;margin:0 auto;height:40px;z-index:4;
+  top:calc(env(safe-area-inset-top,0px) + 22px);pointer-events:none;opacity:0;transition:opacity .4s ease;--cat:#d98a2b}
+.cat-lane.on{opacity:1}
+.cat-lane:not(.on) *{animation-play-state:paused!important}
+.cat-pos{position:absolute;left:0;bottom:0;width:44px;height:32px;will-change:transform}
+.cat-flip{width:44px;height:32px;transition:transform .15s ease}
+.cat-jump{width:44px;height:32px}
+.cat-jump.hop{animation:catHop .6s cubic-bezier(.3,.7,.4,1)}
+@keyframes catHop{0%{transform:translateY(0) scaleY(1)}12%{transform:translateY(2px) scaleY(.88)}50%{transform:translateY(var(--h,-18px)) scaleY(1.05)}88%{transform:translateY(0) scaleY(.92)}100%{transform:translateY(0) scaleY(1)}}
+.cat{width:44px;height:32px;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cat svg{width:100%;height:100%;overflow:visible;display:block}
+.cat .body,.cat .skull,.cat .ear,.cat .leg{fill:var(--cat)}
+.cat .stripe{stroke:color-mix(in srgb,var(--cat) 60%,#6b3a10)}
+.cat .eyes-open,.cat .nose{fill:#2a1a0c}
+.cat .eyes-shut,.cat .whisk{stroke:#2a1a0c}
+.cat .nose{fill:#e98f8f}
+.cat .eyes-shut{display:none}
+.cat .tail{transform-origin:8px 20px;animation:catTail 2.4s ease-in-out infinite}
+@keyframes catTail{0%,100%{transform:rotate(0)}50%{transform:rotate(14deg)}}
+.cat .head{transform-origin:30px 16px}
+.cat .leg{transform-box:fill-box;transform-origin:50% 0}
+/* ходьба и бег */
+.cat.walk .l1,.cat.walk .l4,.cat.run .l1,.cat.run .l4{animation:legA .45s linear infinite}
+.cat.walk .l2,.cat.walk .l3,.cat.run .l2,.cat.run .l3{animation:legB .45s linear infinite}
+.cat.run .leg{animation-duration:.25s!important}
+.cat.walk svg,.cat.run svg{animation:catBob .45s ease-in-out infinite}
+.cat.run svg{animation-duration:.25s}
+@keyframes legA{0%,100%{transform:rotate(22deg)}50%{transform:rotate(-22deg)}}
+@keyframes legB{0%,100%{transform:rotate(-22deg)}50%{transform:rotate(22deg)}}
+@keyframes catBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1px)}}
+/* сидит: задние лапы поджаты, хвост машет */
+.cat.sit .l1,.cat.sit .l2,.cat.wash .l1,.cat.wash .l2{transform:scaleY(.45)}
+.cat.sit .head{animation:catLook 6s ease-in-out infinite}
+@keyframes catLook{0%,40%,100%{transform:rotate(0)}50%,70%{transform:rotate(-8deg)}}
+/* умывается */
+.cat.wash .head{animation:catWash .5s ease-in-out infinite alternate}
+.cat.wash .l4{animation:catPaw .5s ease-in-out infinite alternate}
+@keyframes catWash{from{transform:rotate(0)}to{transform:rotate(12deg)}}
+@keyframes catPaw{from{transform:rotate(0)}to{transform:rotate(-70deg) translateY(-2px)}}
+.cat.wash .eyes-open{display:none}.cat.wash .eyes-shut{display:block}
+/* прыжок на мяч */
+.cat.pounce .head{transform:rotate(10deg) translateY(2px)}
+.cat.pounce .l3,.cat.pounce .l4{transform:rotate(-35deg)}
+/* спит: свернулся клубочком */
+.cat.sleep svg{transform:translateY(4px) scaleY(.78);transform-origin:50% 100%}
+.cat.sleep .leg{transform:scaleY(.25)}
+.cat.sleep .eyes-open{display:none}.cat.sleep .eyes-shut{display:block}
+.cat.sleep .head{transform:rotate(18deg) translate(-3px,4px)}
+.cat.sleep .tail{animation:catTail 5s ease-in-out infinite}
+.cat.sleep .body{animation:catBreath 3s ease-in-out infinite;transform-origin:20px 26px}
+@keyframes catBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.04,1.07)}}
+/* облачко с текстом */
+.cat-bubble{position:absolute;left:50%;bottom:36px;transform:translateX(-50%) translateY(4px);opacity:0;white-space:nowrap;
+  font:700 11px var(--body);color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:2px 7px;
+  transition:opacity .25s ease,transform .25s ease}
+.cat-bubble.on{opacity:1;transform:translateX(-50%) translateY(0)}
+/* мячик */
+.cat-ball{position:absolute;left:0;bottom:1px;width:10px;height:10px;border-radius:50%;opacity:0;
+  background:radial-gradient(circle at 35% 35%,#ff9a9a,#d94b4b);transition:opacity .2s ease}
+.cat-ball.on{opacity:1}
+@media (prefers-reduced-motion:reduce){.cat *{animation:none!important}}

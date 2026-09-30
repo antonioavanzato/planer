@@ -6,13 +6,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { getMessaging, getToken, deleteToken, isSupported as messagingSupported } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging.js";
 import { firebaseConfig, vapidKey } from "./firebase-config.js";
+import { initCat } from "./cat.js";
 
 // Firestore хранит копию данных на телефоне и досылает изменения, когда появляется сеть.
 const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "20";
+const APP_VERSION = "21";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -153,7 +154,11 @@ function syncBadge() {
 }
 function updateSync() { const el = document.getElementById("sync"); if (el) el.outerHTML = syncBadge(); }
 
+const kitty = (() => { try { return initCat(); } catch (e) { console.error(e); return { setVisible() {} }; } })();
+
 function render() {
+  const { view: v0 } = route();
+  kitty.setVisible(!!state.user && (v0 === "" || v0 === "s"));
   if (!state.user) return renderLogin();
   const { view, id } = route();
   if (view === "c" && id) return renderClient(id);
@@ -742,6 +747,39 @@ function renderWorkout(wid) {
     <datalist id="exnames">${allNames.map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
   </main>`;
 }
+
+// ---------- крестик «стереть всё» в текстовых полях ----------
+const CLEARABLE = 'input.input:not([type=date]):not([type=time]):not([type=file]):not([type=hidden]), textarea.input, input[data-exname]';
+function addClearButtons(root = document) {
+  root.querySelectorAll(CLEARABLE).forEach((el) => {
+    if (el.parentElement?.classList.contains("clr-wrap")) return;
+    const wrap = document.createElement("span");
+    wrap.className = "clr-wrap" + (el.tagName === "TEXTAREA" ? " is-area" : "") + (el.dataset.exname != null ? " is-inline" : "");
+    const focused = document.activeElement === el;
+    let ss = null, se = null;
+    try { ss = el.selectionStart; se = el.selectionEnd; } catch {}
+    el.replaceWith(wrap); wrap.append(el);
+    if (focused) { el.focus({ preventScroll: true }); try { if (ss != null) el.setSelectionRange(ss, se); } catch {} }
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "clr"; b.tabIndex = -1; b.setAttribute("aria-label", "Стереть");
+    b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>`;
+    wrap.append(b);
+    wrap.classList.toggle("has", !!el.value);
+  });
+}
+document.addEventListener("input", (e) => { const w = e.target.parentElement; if (w?.classList.contains("clr-wrap")) w.classList.toggle("has", !!e.target.value); }, true);
+document.addEventListener("pointerdown", (e) => { if (e.target.closest(".clr")) e.preventDefault(); }, true); // не терять фокус
+document.addEventListener("click", (e) => {
+  const b = e.target.closest(".clr"); if (!b) return;
+  e.stopPropagation();
+  const el = b.parentElement.querySelector("input, textarea");
+  el.value = "";
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+  const again = el.id ? document.getElementById(el.id) : el; // экран мог перерисоваться
+  (again || el).focus();
+}, true);
+new MutationObserver(() => addClearButtons()).observe(document.body, { childList: true, subtree: true });
 
 // ---------- «Удалено · Отменить» ----------
 let toastTimer = null;
