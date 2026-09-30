@@ -7,13 +7,14 @@ import {
 import { getMessaging, getToken, deleteToken, isSupported as messagingSupported } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging.js";
 import { firebaseConfig, vapidKey } from "./firebase-config.js";
 import { initCat } from "./cat.js";
+import { progressCard } from "./share.js";
 
 // Firestore хранит копию данных на телефоне и досылает изменения, когда появляется сеть.
 const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "26";
+const APP_VERSION = "27";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -435,6 +436,39 @@ function chartSvg(hist) {
   </svg>`;
 }
 
+const SHARE_ICON = `<svg class="ico-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>`;
+
+// «Поделиться прогрессом»: готовим картинку заранее, чтобы кнопка «Отправить» сработала сразу по касанию
+async function shareSheet(cid) {
+  const c = state.clients.find((x) => x.id === cid); if (!c) return;
+  const names = exerciseNames(cid);
+  const ex = names.includes(state.chartEx[cid]) ? state.chartEx[cid] : names[0];
+  const hist = ex ? exerciseHistory(cid, ex) : [];
+  if (hist.length < 2) return;
+  const firstName = c.name.trim().split(/\s+/)[0];
+  const ws = workoutsOf(cid);
+  const records = ws.reduce((n, w) => n + (w.exercises || []).filter((e) => e.name === ex && isRecord(cid, w, e)).length, 0);
+  const bg = sheet(`
+    <div class="navrow center"><b>Прогресс · ${esc(firstName)}</b></div>
+    <div class="share-prev"><div class="n-loading"><span></span><span></span><span></span></div></div>
+    <button type="button" class="btn block" id="sh-send" disabled>${SHARE_ICON}Отправить</button>
+    <div class="meta" id="sh-hint">На картинке только имя, без фамилии. Если меню не открылось, нажми и подержи картинку, чтобы сохранить её в «Фото».</div>
+  `, () => false);
+  const blob = await progressCard({ name: firstName, exercise: ex, hist, workouts: ws.length, records });
+  if (!bg.isConnected || !blob) return;
+  const url = URL.createObjectURL(blob);
+  bg.querySelector(".share-prev").innerHTML = `<img src="${url}" alt="Прогресс ${esc(firstName)}: ${esc(ex)}">`;
+  const file = new File([blob], `progress-${localISO()}.png`, { type: "image/png" });
+  const send = bg.querySelector("#sh-send");
+  send.disabled = false;
+  send.onclick = async () => {
+    try {
+      if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file] });
+      else { const a = document.createElement("a"); a.href = url; a.download = file.name; a.click(); }
+    } catch (e) { if (e.name !== "AbortError") showError(e); }
+  };
+}
+
 function renderClient(cid) {
   const c = state.clients.find((x) => x.id === cid);
   if (!c) { $app.innerHTML = `<main class="screen"><div class="navrow"><button class="link back" data-go="#/">${CHEV_L}Клиенты</button></div><div class="empty">${state.loaded ? "Клиент не найден." : "Загрузка…"}</div></main>`; return; }
@@ -457,6 +491,7 @@ function renderClient(cid) {
         <div style="text-align:right"><div class="lbl">Сейчас · ${dateRu(lastH.date)}</div><div class="big now">${fmt(lastH.w)}<small> кг×${fmt(lastH.r)}</small></div></div>
       </div>
       ${chartSvg(hist)}
+      ${hist.length >= 2 ? `<div class="share-row"><button class="link" data-act="shareProgress" data-id="${cid}">${SHARE_ICON}Поделиться прогрессом</button></div>` : ""}
     </div>` : `<div class="panel empty">Здесь появится прогресс «было → стало», когда запишешь первую тренировку.</div>`;
 
   $app.innerHTML = `<main class="screen">
@@ -1073,6 +1108,7 @@ document.addEventListener("click", (e) => {
   const w = state.draft, ei = +t.dataset.ei, si = +t.dataset.si;
   switch (t.dataset.act) {
     case "menu": return menuSheet();
+    case "shareProgress": return shareSheet(t.dataset.id);
     case "newClient": return clientSheet(null);
     case "newPkg": return packageSheet(state.clients.find((c) => c.id === t.dataset.id));
     case "editPkg": return packageSheet(state.clients.find((c) => c.id === t.dataset.id), t.dataset.pid);

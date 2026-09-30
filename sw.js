@@ -1,7 +1,7 @@
 // Кеш оболочки приложения, чтобы оно открывалось без интернета.
 // Данные кеширует сам Firestore (IndexedDB).
-const CACHE = "zhurnal-v26";
-const SHELL = ["./", "index.html", "style.css", "app.js", "cat.js", "firebase-config.js", "manifest.webmanifest", "icons/icon.svg", "icons/apple-touch-icon.png"];
+const CACHE = "zhurnal-v27";
+const SHELL = ["./", "index.html", "style.css", "app.js", "cat.js", "share.js", "firebase-config.js", "manifest.webmanifest", "icons/icon.svg", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

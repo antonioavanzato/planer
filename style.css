@@ -427,3 +427,11 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appeara
 .segctl button{min-height:38px;border:0;border-radius:9px;background:none;color:var(--muted);font:600 14px var(--body);transition:background-color .2s ease,color .2s ease}
 .segctl button.on{background:var(--accent);color:#fff;box-shadow:0 4px 10px -6px rgba(0,0,0,.4)}
 .n-main{display:flex;align-items:center;justify-content:center}
+
+/* поделиться прогрессом */
+.share-row{display:flex;justify-content:flex-end;margin-top:10px}
+.share-prev{display:grid;place-items:center;min-height:200px;border-radius:16px;overflow:hidden;background:var(--card);border:1px solid var(--line)}
+.share-prev img{display:block;width:100%;height:auto;-webkit-touch-callout:default}
+#sh-send{display:flex;align-items:center;justify-content:center;gap:8px}
+#sh-send .ico-s{width:18px;height:18px}
+#sh-send:disabled{opacity:.5}
