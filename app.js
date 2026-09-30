@@ -12,7 +12,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "15";
+const APP_VERSION = "16";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -236,7 +236,7 @@ function packagePanel(c) {
   const status = p.left <= 0 ? "Все занятия использованы" : p.expired ? `Срок истёк ${dateRu(p.expires)}` : `Действует ещё ${p.daysLeft} ${plural(p.daysLeft, "день", "дня", "дней")}`;
   const history = list.slice(0, -1).reverse();
   return `<div class="panel pk pk-${p.level}">
-    <div class="pk-h"><span class="lbl">Абонемент</span><button class="link meta" data-act="editPkg" data-id="${c.id}" data-pid="${p.id}">куплен ${dateRu(p.bought)} · до ${dateRu(p.expires)} ✎</button></div>
+    <div class="pk-h"><span class="lbl">Абонемент</span><button class="link quiet small" data-act="editPkg" data-id="${c.id}" data-pid="${p.id}">${dateRu(p.bought)} – ${dateRu(p.expires)}${PEN}</button></div>
     <div class="pk-n"><b>${Math.max(p.left, 0)}</b><span>${plural(Math.max(p.left, 0), "занятие осталось", "занятия осталось", "занятий осталось")} из ${p.count}</span></div>
     <div class="seg" aria-hidden="true">${Array.from({ length: p.count }, (_, i) => `<i class="${i < p.used ? "on" : ""}"></i>`).join("")}</div>
     <div class="pk-status">${status}${planned ? ` · запланировано ${planned}` : ""}</div>
@@ -255,7 +255,7 @@ function savePackages(c, packages) {
 function packageSheet(c, pid) {
   const cur = (c.packages || []).find((p) => p.id === pid);
   const bg = sheet(`
-    <div class="navrow"><button type="button" class="link" data-close>Отмена</button><b>${cur ? "Абонемент" : "Новый абонемент"}</b><button class="link" type="submit">Сохранить</button></div>
+    <div class="navrow"><button type="button" class="link quiet" data-close>Отмена</button><b>${cur ? "Абонемент" : "Новый абонемент"}</b><button class="link primary" type="submit">Сохранить</button></div>
     <div class="field"><label class="lbl" for="p-date">Дата покупки</label><input class="input" id="p-date" name="bought" type="date" required value="${cur?.bought || today()}"></div>
     <div class="field"><span class="lbl">Пакет</span><div class="chips">
       <button type="button" class="chip" data-preset="5">5 занятий · 30 дней</button>
@@ -292,7 +292,7 @@ function packageSheet(c, pid) {
 
 function lateCancelSheet(c) {
   sheet(`
-    <div class="navrow"><button type="button" class="link" data-close>Отмена</button><b>Поздняя отмена</b><span></span></div>
+    <div class="navrow"><button type="button" class="link quiet" data-close>Отмена</button><b>Поздняя отмена</b><span></span></div>
     <div class="meta">Клиент отменил или перенёс тренировку менее чем за 6 часов. Занятие спишется с абонемента.</div>
     <div class="field"><label class="lbl" for="lc-date">Дата тренировки</label><input class="input" id="lc-date" name="date" type="date" required value="${today()}"></div>
     <button class="btn block" type="submit">Списать занятие</button>
@@ -303,6 +303,10 @@ function lateCancelSheet(c) {
     state.workouts.push({ id, ...item }); render();
   });
 }
+
+const CHEV_L = `<svg class="ico-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>`;
+const CHEV_R = `<svg class="ico-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>`;
+const PEN = `<svg class="ico-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>`;
 
 const TAB_ICONS = {
   clients: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.7 3 2.5 3.5 5.2"/></svg>`,
@@ -407,7 +411,7 @@ function chartSvg(hist) {
 
 function renderClient(cid) {
   const c = state.clients.find((x) => x.id === cid);
-  if (!c) { $app.innerHTML = `<main class="screen"><div class="navrow"><button class="link" data-go="#/">‹ Клиенты</button></div><div class="empty">${state.loaded ? "Клиент не найден." : "Загрузка…"}</div></main>`; return; }
+  if (!c) { $app.innerHTML = `<main class="screen"><div class="navrow"><button class="link back" data-go="#/">${CHEV_L}Клиенты</button></div><div class="empty">${state.loaded ? "Клиент не найден." : "Загрузка…"}</div></main>`; return; }
   const ws = workoutsOf(cid), sess = sessionsOf(cid), pk = packagesOf(c);
   const names = exerciseNames(cid);
   const ex = names.includes(state.chartEx[cid]) ? state.chartEx[cid] : names[0];
@@ -430,7 +434,7 @@ function renderClient(cid) {
     </div>` : `<div class="panel empty">Здесь появится прогресс «было → стало», когда запишешь первую тренировку.</div>`;
 
   $app.innerHTML = `<main class="screen">
-    <div class="navrow"><button class="link" data-go="#/">‹ Клиенты</button><span style="display:flex;gap:14px;align-items:center">${syncBadge()}<button class="link" data-act="editClient" data-id="${cid}">Правка</button></span></div>
+    <div class="navrow"><button class="link back" data-go="#/">${CHEV_L}Клиенты</button><span style="display:flex;gap:14px;align-items:center">${syncBadge()}<button class="link" data-act="editClient" data-id="${cid}">${PEN}Правка</button></span></div>
     <div class="hero">${avatar(c)}<div><h2>${esc(c.name)}</h2>
       <div class="meta">${c.startDate ? `С ${dateRu(c.startDate)} · ` : ""}${ws.length} ${plural(ws.length, "тренировка", "тренировки", "тренировок")}${c.goal ? ` · цель: ${esc(c.goal)}` : ""}</div></div></div>
     ${packagePanel(c)}
@@ -487,8 +491,8 @@ function todayBlock() {
   const next = all.find((w) => w.date > today());
   const nc = next && state.clients.find((x) => x.id === next.clientId);
   return `<section class="panel today">
-    <div class="pk-h"><span class="lbl">Сегодня по расписанию</span><button class="link" data-go="#/s">Расписание ›</button></div>
-    ${overdue.length ? `<button class="pk-warn-line" data-go="#/s" style="text-align:left;width:100%">Не отмечено ${overdue.length} ${plural(overdue.length, "прошедшее занятие", "прошедших занятия", "прошедших занятий")} ›</button>` : ""}
+    <div class="pk-h"><span class="lbl">Сегодня по расписанию</span><button class="link" data-go="#/s">Расписание${CHEV_R}</button></div>
+    ${overdue.length ? `<button class="pk-warn-line" data-go="#/s" style="text-align:left;width:100%">Не отмечено ${overdue.length} ${plural(overdue.length, "прошедшее занятие", "прошедших занятия", "прошедших занятий")}${CHEV_R}</button>` : ""}
     ${todays.length ? `<div class="plan-list">${todays.map((w) => planRow(w)).join("")}</div>`
       : `<div class="meta">${next ? `Сегодня свободно. Ближайшее: ${dayLabel(next.date).toLowerCase()} ${esc(next.time || "")} · ${esc(nc?.name || "")}` : "Пока ничего не запланировано."}</div>`}
   </section>`;
@@ -521,13 +525,13 @@ function renderPlanned(id) {
   const w = state.workouts.find((x) => x.id === id);
   if (!w || !isPlanned(w)) {
     if (w) return go(`#/w/${w.id}`);
-    $app.innerHTML = `<main class="screen"><div class="navrow"><button class="link" data-go="#/s">‹ Расписание</button></div><div class="empty">${state.loaded ? "Запись не найдена." : "Загрузка…"}</div></main>`; return;
+    $app.innerHTML = `<main class="screen"><div class="navrow"><button class="link back" data-go="#/s">${CHEV_L}Расписание</button></div><div class="empty">${state.loaded ? "Запись не найдена." : "Загрузка…"}</div></main>`; return;
   }
   const c = state.clients.find((x) => x.id === w.clientId);
   const a = c?.packages?.length ? packagesOf(c, true).alloc[w.id] : null;
   const overdue = w.date < today();
   $app.innerHTML = `<main class="screen">
-    <div class="navrow"><button class="link" data-go="#/s">‹ Расписание</button>${syncBadge()}<button class="link" data-go="#/c/${w.clientId}">Клиент</button></div>
+    <div class="navrow"><button class="link back" data-go="#/s">${CHEV_L}Расписание</button>${syncBadge()}<button class="link" data-go="#/c/${w.clientId}">Клиент</button></div>
     <div class="hero">${c ? avatar(c) : ""}<div><h2>${esc(c?.name || "")}</h2><div class="meta">Запланированная тренировка</div></div></div>
     <div class="panel plan-card">
       <div class="lbl">${overdue ? "Прошло, не отмечено" : "Когда"}</div>
@@ -559,7 +563,7 @@ function planSheet(cid, existing) {
   const clientsSorted = state.clients.slice().sort((a, b) => a.name.localeCompare(b.name));
   if (!clientsSorted.length) return showError({ message: "Сначала добавь клиента." });
   const bg = sheet(`
-    <div class="navrow"><button type="button" class="link" data-close>Отмена</button><b>${existing ? "Перенести" : "Запланировать"}</b><button class="link" type="submit">Сохранить</button></div>
+    <div class="navrow"><button type="button" class="link quiet" data-close>Отмена</button><b>${existing ? "Перенести" : "Запланировать"}</b><button class="link primary" type="submit">Сохранить</button></div>
     ${existing || cid ? "" : `<div class="field"><label class="lbl" for="pl-client">Клиент</label><select class="input" id="pl-client" name="client">${clientsSorted.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>`}
     <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px">
       <div class="field"><label class="lbl" for="pl-date">Дата</label><input class="input" id="pl-date" name="date" type="date" required min="${existing ? "" : today()}" value="${existing?.date || addDays(today(), 1)}"></div>
@@ -652,7 +656,7 @@ function repeatPanel(w) {
 function renderWorkout(wid) {
   if (!state.draft || state.draft.id !== wid) {
     const w = state.workouts.find((x) => x.id === wid);
-    if (!w) { $app.innerHTML = `<main class="screen"><div class="navrow"><button class="link" data-go="#/">‹ Клиенты</button></div><div class="empty">${state.loaded ? "Тренировка не найдена." : "Загрузка…"}</div></main>`; return; }
+    if (!w) { $app.innerHTML = `<main class="screen"><div class="navrow"><button class="link back" data-go="#/">${CHEV_L}Клиенты</button></div><div class="empty">${state.loaded ? "Тренировка не найдена." : "Загрузка…"}</div></main>`; return; }
     state.draft = structuredClone(w);
   }
   const w = state.draft;
@@ -677,7 +681,7 @@ function renderWorkout(wid) {
   }).join("");
 
   $app.innerHTML = `<main class="screen">
-    <div class="navrow"><button class="link" data-go="#/c/${w.clientId}">‹ ${esc(c ? c.name.split(" ")[0] : "Назад")}</button>${syncBadge()}<button class="link" data-go="#/c/${w.clientId}">Готово</button></div>
+    <div class="navrow"><button class="link back" data-go="#/c/${w.clientId}">${CHEV_L}${esc(c ? c.name.split(" ")[0] : "Назад")}</button>${syncBadge()}<button class="link primary" data-go="#/c/${w.clientId}">Готово</button></div>
     <input class="input" id="wtitle" value="${esc(w.title)}" placeholder="Название, например «Ноги»" style="font:700 24px var(--display);text-transform:uppercase">
     ${pkgLine(c, w)}
     <div style="display:flex;gap:8px;align-items:center"><span class="lbl">Дата</span><input class="input" id="wdate" type="date" value="${esc(w.date)}" style="width:auto"></div>
@@ -732,7 +736,7 @@ function clientSheet(c) {
   let photo; // undefined — не менялось, "" — убрали, dataURL — новое фото
   const v = (k) => esc(c?.[k] ?? "");
   sheet(`
-    <div class="navrow"><button type="button" class="link" data-close>Отмена</button><b>${c ? "Клиент" : "Новый клиент"}</b><button class="link" type="submit">Сохранить</button></div>
+    <div class="navrow"><button type="button" class="link quiet" data-close>Отмена</button><b>${c ? "Клиент" : "Новый клиент"}</b><button class="link primary" type="submit">Сохранить</button></div>
     <div class="photo-pick">
       <span id="f-ava">${c?.photo ? `<img class="ava" src="${esc(c.photo)}" alt="">` : `<div class="ava">${c ? esc(initials(c.name)) : "+"}</div>`}</span>
       <button type="button" class="link" id="f-photobtn">${c?.photo ? "Сменить фото" : "Добавить фото"}</button>
@@ -784,7 +788,7 @@ function clientSheet(c) {
 
 function menuSheet() {
   sheet(`
-    <div class="navrow"><button type="button" class="link" data-close>Закрыть</button><b>Меню</b><span></span></div>
+    <div class="navrow"><button type="button" class="link quiet" data-close>Закрыть</button><b>Меню</b><span></span></div>
     <div class="meta">Вошёл как ${esc(state.user.email)} · версия ${APP_VERSION}</div>
     <button type="button" class="btn block" id="exp">Экспорт в файл (бэкап)</button>
     <label class="btn ghost block" style="text-align:center">Импорт из файла<input type="file" accept="application/json" id="imp" hidden></label>
@@ -820,7 +824,7 @@ async function notifySheet() {
     : !supported ? "Этот телефон не поддерживает уведомления. Нужен iOS 16.4 или новее."
     : !vapidKey ? "Уведомления ещё не настроены (нет ключа VAPID)." : "";
   const bg = sheet(`
-    <div class="navrow"><button type="button" class="link" data-close>Закрыть</button><b>Уведомления</b><span></span></div>
+    <div class="navrow"><button type="button" class="link quiet" data-close>Закрыть</button><b>Уведомления</b><span></span></div>
     ${reason ? `<div class="pk-warn-line">${reason}</div>` : `
     <div class="meta">${on ? "Уведомления на этом телефоне включены." : "Включи, чтобы получать напоминания о тренировках."}</div>
     <div class="field"><span class="lbl">Сводка на день</span><div class="chips" data-group="morning">
