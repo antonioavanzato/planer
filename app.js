@@ -13,7 +13,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "21";
+const APP_VERSION = "22";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -157,8 +157,12 @@ function updateSync() { const el = document.getElementById("sync"); if (el) el.o
 const kitty = (() => { try { return initCat(); } catch (e) { console.error(e); return { setVisible() {} }; } })();
 
 function render() {
+  renderScreen();
+  // котик ходит по верхней кромке карточки «Сегодня» на главном экране
   const { view: v0 } = route();
-  kitty.setVisible(!!state.user && (v0 === "" || v0 === "s"));
+  kitty.setFloor(state.user && v0 === "" ? document.querySelector(".status") : null);
+}
+function renderScreen() {
   if (!state.user) return renderLogin();
   const { view, id } = route();
   if (view === "c" && id) return renderClient(id);
@@ -400,6 +404,7 @@ function renderClients() {
   </main>
   ${dock("clients", "newClient", "Новый клиент")}`;
 
+  kitty.setFloor(document.querySelector(".status"));
   const s = document.getElementById("search");
   s.oninput = () => { state.query = s.value; const pos = s.selectionStart; renderClients(); const n = document.getElementById("search"); n.focus(); n.setSelectionRange(pos, pos); };
 }

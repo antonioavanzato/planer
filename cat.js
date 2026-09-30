@@ -41,8 +41,9 @@ export function initCat() {
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const width = () => lane.clientWidth;
-  const minX = () => 64;                                   // не заходим на дату слева
-  const maxX = () => Math.max(minX() + 20, width() - 130 - W); // и на «В облаке» справа
+  const minX = () => 16;                                   // не заходим на скруглённые углы «пола»
+  const maxX = () => Math.max(minX() + 20, width() - 16 - W);
+  let floorEl = null;
 
   const setState = (s) => { cat.className = "cat " + s; };
   const face = (dir) => { facing = dir; flip.style.transform = `scaleX(${dir})`; };
@@ -130,7 +131,26 @@ export function initCat() {
   start();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) start(); });
 
+  // «Пол» — верхняя кромка карточки: ставим дорожку так, чтобы лапы стояли ровно на её краю.
+  function fit() {
+    if (!floorEl || !floorEl.isConnected) return false;
+    const r = floorEl.getBoundingClientRect();
+    if (!r.width) return false;
+    lane.style.left = `${r.left + scrollX}px`;
+    lane.style.width = `${r.width}px`;
+    lane.style.top = `${r.top + scrollY - lane.offsetHeight + 1}px`;
+    return true;
+  }
+  addEventListener("resize", () => { fit(); place(Math.min(Math.max(x, minX()), maxX()), 0); });
+  document.fonts?.ready?.then(() => fit());
+
   return {
+    setFloor(el) {
+      floorEl = el || null;
+      const ok = fit();
+      this.setVisible(ok);
+      if (ok) place(Math.min(Math.max(x, minX()), maxX()), 0);
+    },
     setVisible(v) {
       if (v === visible) return;
       visible = v;

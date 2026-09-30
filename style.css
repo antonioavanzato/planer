@@ -290,8 +290,7 @@ input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and
 input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
 
 /* котик */
-.cat-lane{position:absolute;left:16px;right:16px;max-width:528px;margin:0 auto;height:40px;z-index:4;
-  top:calc(env(safe-area-inset-top,0px) + 22px);pointer-events:none;opacity:0;transition:opacity .4s ease;--cat:#d98a2b}
+.cat-lane{position:absolute;left:0;top:0;width:0;height:40px;z-index:4;pointer-events:none;opacity:0;transition:opacity .4s ease;--cat:#d98a2b}
 .cat-lane.on{opacity:1}
 .cat-lane:not(.on) *{animation-play-state:paused!important}
 .cat-pos{position:absolute;left:0;bottom:0;width:44px;height:32px;will-change:transform}
@@ -321,7 +320,6 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appeara
 @keyframes legB{0%,100%{transform:rotate(-22deg)}50%{transform:rotate(22deg)}}
 @keyframes catBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1px)}}
 /* сидит: задние лапы поджаты, хвост машет */
-.cat.sit .l1,.cat.sit .l2,.cat.wash .l1,.cat.wash .l2{transform:scaleY(.45)}
 .cat.sit .head{animation:catLook 6s ease-in-out infinite}
 @keyframes catLook{0%,40%,100%{transform:rotate(0)}50%,70%{transform:rotate(-8deg)}}
 /* умывается */
@@ -351,3 +349,6 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appeara
   background:radial-gradient(circle at 35% 35%,#ff9a9a,#d94b4b);transition:opacity .2s ease}
 .cat-ball.on{opacity:1}
 @media (prefers-reduced-motion:reduce){.cat *{animation:none!important}}
+
+/* место над «полом» для котика */
+.status{margin-top:26px}
