@@ -12,7 +12,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "16";
+const APP_VERSION = "17";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -93,12 +93,23 @@ function previousExercise(cid, workout, name) {
 const tonnage = (w) => (w.exercises || []).reduce((t, e) => t + (e.sets || []).reduce((s, x) => s + (num(x.w) || 0) * (num(x.r) || 0), 0), 0);
 
 // ---------- авторизация и подписки ----------
+// Заставка держится минимум 2,2 с (чтобы успеть прочитать фразу), максимум 6 с; касание — сразу убрать.
+let splashDone = false;
+function hideSplash(force = false) {
+  const el = document.getElementById("splash");
+  if (!el || splashDone) return;
+  const wait = force ? 0 : Math.max(0, 2200 - (Date.now() - (window.__splashStart || 0)));
+  splashDone = true;
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 650); }, wait);
+}
+setTimeout(() => hideSplash(true), 6000);
+
 onAuthStateChanged(auth, (user) => {
   unsubs.forEach((u) => u()); unsubs = [];
   state.user = user; state.clients = []; state.workouts = []; state.loaded = false;
-  if (!user) return render();
+  if (!user) { hideSplash(); return render(); }
   let got = 0;
-  const done = () => { if (++got >= 2) state.loaded = true; };
+  const done = () => { if (++got >= 2) { state.loaded = true; hideSplash(); } };
   const watch = (name, key) => onSnapshot(userCol(name), { includeMetadataChanges: true }, (snap) => {
     state[key] = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     // «Отправка…» пока хоть в одной коллекции есть неотправленные изменения
