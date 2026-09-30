@@ -13,7 +13,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "22";
+const APP_VERSION = "24";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -154,7 +154,8 @@ function syncBadge() {
 }
 function updateSync() { const el = document.getElementById("sync"); if (el) el.outerHTML = syncBadge(); }
 
-const kitty = (() => { try { return initCat(); } catch (e) { console.error(e); return { setVisible() {} }; } })();
+const kitty = (() => { try { return initCat(); } catch (e) { console.error(e); return { setVisible() {}, setFloor() {} }; } })();
+window.__kitty = kitty;
 
 function render() {
   renderScreen();
@@ -963,39 +964,56 @@ function deviceId() {
 
 const BELL_ICON = `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
 
-async function notifySheet() {
+function notifySheet() {
+  // Окно открывается сразу, а состояние подгружается уже внутри — без задержки на касание.
+  const bg = sheet(`
+    <div class="navrow center"><b>Уведомления</b></div>
+    <div id="n-body"><div class="n-loading"><span></span><span></span><span></span></div></div>
+  `, (fd, el) => { enableNotifications(el); return false; });
+  fillNotify(bg);
+}
+
+const segCtl = (group, items, current) => `<div class="segctl" data-group="${group}">${items.map(([v, label]) =>
+  `<button type="button" class="${String(v) === String(current) ? "on" : ""}" data-v="${v}">${label}</button>`).join("")}</div>`;
+
+async function fillNotify(bg) {
   const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
-  const supported = "Notification" in window && "serviceWorker" in navigator && (await messagingSupported().catch(() => false));
   const ref = userDoc("devices", deviceId());
-  const cur = (await getDoc(ref).catch(() => null))?.data() || null;
+  const [supported, snap] = await Promise.all([
+    ("Notification" in window && "serviceWorker" in navigator) ? messagingSupported().catch(() => false) : false,
+    getDoc(ref).catch(() => null),
+  ]);
+  const body = bg.querySelector("#n-body"); if (!body) return;
+  const cur = snap?.data?.() || null;
   const on = !!cur?.token && window.Notification?.permission === "granted";
   const morning = cur?.morning ?? "08:00", before = cur?.before ?? 60;
   const reason = !standalone ? "Открой приложение с иконки на экране «Домой»: в Safari уведомления не работают."
     : !supported ? "Этот телефон не поддерживает уведомления. Нужен iOS 16.4 или новее."
-    : !vapidKey ? "Уведомления ещё не настроены (нет ключа VAPID)." : "";
-  const bg = sheet(`
-    <div class="navrow"><button type="button" class="link quiet" data-close>Закрыть</button><b>Уведомления</b><span></span></div>
-    ${reason ? `<div class="pk-warn-line">${reason}</div>` : `
-    <div class="meta">${on ? "Уведомления на этом телефоне включены." : "Включи, чтобы получать напоминания о тренировках."}</div>
-    <div class="field"><span class="lbl">Сводка на день</span><div class="chips" data-group="morning">
-      ${["", "07:00", "08:00", "09:00"].map((v) => `<button type="button" class="chip ${v === morning ? "on" : ""}" data-v="${v}">${v || "Выкл"}</button>`).join("")}
-    </div><div class="meta">Утром: кто сегодня придёт и у кого заканчивается абонемент.</div></div>
-    <div class="field"><span class="lbl">Напоминание перед тренировкой</span><div class="chips" data-group="before">
-      ${[0, 30, 60, 120].map((v) => `<button type="button" class="chip ${v === before ? "on" : ""}" data-v="${v}">${v ? (v < 60 ? v + " мин" : v / 60 + " ч") : "Выкл"}</button>`).join("")}
-    </div></div>
-    <div class="meta">Уведомления могут приходить с задержкой до 5 минут.</div>
+    : !vapidKey ? "Уведомления ещё не настроены." : "";
+  body.innerHTML = `
+    <div class="n-status ${on ? "on" : ""}">
+      <span class="n-ico">${MENU_ICONS.bell}</span>
+      <span class="menu-txt"><b>${reason ? "Недоступны" : on ? "Включены на этом телефоне" : "Выключены"}</b><small>${reason || (on ? "Приходят с задержкой до 5 минут" : "Включи, чтобы не пропустить тренировку")}</small></span>
+    </div>
+    ${reason ? "" : `
+    <div class="n-sec"><div class="n-h"><b>Сводка на день</b><small>Утром: кто придёт и у кого кончается абонемент</small></div>
+      ${segCtl("morning", [["", "Выкл"], ["07:00", "7:00"], ["08:00", "8:00"], ["09:00", "9:00"]], morning)}</div>
+    <div class="n-sec"><div class="n-h"><b>Напоминание перед тренировкой</b><small>За сколько до начала прислать</small></div>
+      ${segCtl("before", [[0, "Выкл"], [30, "30 мин"], [60, "1 час"], [120, "2 часа"]], before)}</div>
     <div class="err" id="n-err"></div>
-    <button type="submit" class="btn block">${on ? "Сохранить настройки" : `${BELL_ICON}Включить уведомления`}</button>
-    ${on ? `<button type="button" class="btn ghost block" id="n-test">Прислать тестовое</button><button type="button" class="link danger" id="n-off">Выключить на этом телефоне</button>` : ""}`}
-  `, (fd, el) => { enableNotifications(el); return false; });
-  bg.querySelectorAll("[data-group] .chip").forEach((b) => b.addEventListener("click", () => {
-    b.parentElement.querySelectorAll(".chip").forEach((x) => x.classList.toggle("on", x === b));
+    <button type="submit" class="btn block n-main">${on ? "Сохранить" : `${BELL_ICON}Включить уведомления`}</button>
+    ${on ? `<div class="menu-group">
+      <button type="button" class="menu-row" id="n-test"><span class="menu-ico">${MENU_ICONS.bell}</span><span class="menu-txt"><b>Прислать тестовое</b><small>Придёт в течение 5 минут</small></span></button>
+      <button type="button" class="menu-row danger" id="n-off"><span class="menu-ico">${MENU_ICONS.out}</span><span class="menu-txt"><b>Выключить на этом телефоне</b></span></button>
+    </div>` : ""}`}`;
+  body.querySelectorAll(".segctl button").forEach((b) => b.addEventListener("click", () => {
+    b.parentElement.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
   }));
-  bg.querySelector("#n-off")?.addEventListener("click", async () => {
+  body.querySelector("#n-off")?.addEventListener("click", async () => {
     try { await deleteToken(getMessaging(fb)); } catch {}
-    deleteDoc(ref).catch(showError); bg.remove(); showError({ message: "Уведомления выключены." });
+    deleteDoc(ref).catch(showError); bg.close(); showError({ message: "Уведомления выключены." });
   });
-  bg.querySelector("#n-test")?.addEventListener("click", async () => {
+  body.querySelector("#n-test")?.addEventListener("click", () => {
     setDoc(ref, { testRequestedAt: Date.now() }, { merge: true }).catch(showError);
     showError({ message: "Тестовое уведомление придёт в течение 5 минут." });
   });
@@ -1014,7 +1032,7 @@ async function enableNotifications(bg) {
       morning: pick("morning", "08:00"), before: +pick("before", 60),
       ua: navigator.userAgent.slice(0, 200), updatedAt: Date.now(),
     }, { merge: true });
-    bg.remove(); showError({ message: "Готово! Уведомления включены." });
+    bg.close(); showError({ message: "Готово! Уведомления включены." });
   } catch (e) { console.error(e); err.textContent = "Не получилось включить: " + (e.message || e); }
 }
 

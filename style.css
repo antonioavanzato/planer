@@ -153,11 +153,13 @@ select.input{appearance:none}
 .tab:active{transform:scale(.96)}
 .tab .dot{position:absolute;top:6px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 2px var(--card)}
 .dock .fab{position:static;flex:none;width:62px;height:62px;border-radius:50%;
-  box-shadow:0 12px 26px -10px rgba(194,134,28,.7);transition:transform .2s ease}
+  box-shadow:0 12px 26px -10px rgba(194,134,28,.7);transform:translate3d(0,0,0);opacity:1;
+  transition:transform .42s cubic-bezier(.22,1,.36,1),opacity .3s ease;will-change:transform,opacity}
 .dock .fab:active{transform:scale(.94)}
+.dock.is-hidden .fab{transform:translate3d(0,calc(100% + 26px + env(safe-area-inset-bottom,0px)),0);opacity:0;pointer-events:none;transition-delay:.04s}
 /* скрытие: пилюля плавно уезжает вниз, кнопка «+» остаётся на месте */
 .dock.is-hidden .tabbar{transform:translate3d(0,calc(100% + 26px + env(safe-area-inset-bottom,0px)),0);opacity:0;pointer-events:none}
-@media (prefers-reduced-motion:reduce){.tabbar{transition:opacity .2s ease}.dock.is-hidden .tabbar{transform:none}}
+@media (prefers-reduced-motion:reduce){.tabbar,.dock .fab{transition:opacity .2s ease}.dock.is-hidden .tabbar,.dock.is-hidden .fab{transform:none}}
 body:has(.dock) .screen{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 110px)}
 @media (max-width:360px){.tab{width:70px}}
 
@@ -293,12 +295,12 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appeara
 .cat-lane{position:absolute;left:0;top:0;width:0;height:40px;z-index:4;pointer-events:none;opacity:0;transition:opacity .4s ease;--cat:#d98a2b}
 .cat-lane.on{opacity:1}
 .cat-lane:not(.on) *{animation-play-state:paused!important}
-.cat-pos{position:absolute;left:0;bottom:0;width:44px;height:32px;will-change:transform}
+.cat-pos{position:absolute;left:0;bottom:-2px;width:44px;height:32px;will-change:transform}
 .cat-flip{width:44px;height:32px;transition:transform .15s ease}
 .cat-jump{width:44px;height:32px}
 .cat-jump.hop{animation:catHop .6s cubic-bezier(.3,.7,.4,1)}
 @keyframes catHop{0%{transform:translateY(0) scaleY(1)}12%{transform:translateY(2px) scaleY(.88)}50%{transform:translateY(var(--h,-18px)) scaleY(1.05)}88%{transform:translateY(0) scaleY(.92)}100%{transform:translateY(0) scaleY(1)}}
-.cat{width:44px;height:32px;pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cat{width:44px;height:32px;pointer-events:none}
 .cat svg{width:100%;height:100%;overflow:visible;display:block}
 .cat .body,.cat .skull,.cat .ear,.cat .leg{fill:var(--cat)}
 .cat .stripe{stroke:color-mix(in srgb,var(--cat) 60%,#6b3a10)}
@@ -352,3 +354,76 @@ input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none;appeara
 
 /* место над «полом» для котика */
 .status{margin-top:26px}
+
+/* котик: новые позы */
+.cat .mouth{fill:#8c3b3b;transform-box:fill-box;transform-origin:50% 0;transform:scale(0)}
+.cat.yawn .mouth{animation:catYawn 1.4s ease-in-out}
+.cat.yawn .eyes-open{display:none}.cat.yawn .eyes-shut{display:block}
+.cat.yawn .head{transform:rotate(-10deg)}
+@keyframes catYawn{0%{transform:scale(0)}35%,70%{transform:scale(1.1)}100%{transform:scale(0)}}
+.cat.meow .mouth{animation:catMeow .45s ease-in-out 2}
+@keyframes catMeow{0%,100%{transform:scale(0)}50%{transform:scale(.8)}}
+/* потягушки: передние лапы вперёд, попа вверх */
+.cat.stretch svg{transform-origin:20px 30px;animation:catStretch 1.9s ease-in-out}
+.cat.stretch .l3,.cat.stretch .l4{animation:catReach 1.9s ease-in-out}
+@keyframes catStretch{0%,100%{transform:none}30%,75%{transform:rotate(9deg) translateY(1px)}}
+@keyframes catReach{0%,100%{transform:none}30%,75%{transform:rotate(-60deg)}}
+.cat.stretch .eyes-open{display:none}.cat.stretch .eyes-shut{display:block}
+/* буханка */
+.cat.loaf .leg{transform:scaleY(.15)}
+.cat.loaf svg{transform:translateY(4px)}
+.cat.loaf .eyes-open{transform:scaleY(.35);transform-box:fill-box;transform-origin:50% 50%}
+.cat.loaf .tail{animation:catTail 6s ease-in-out infinite}
+/* месит лапками */
+.cat.knead .l3{animation:catKnead .5s ease-in-out infinite}
+.cat.knead .l4{animation:catKnead .5s ease-in-out .25s infinite}
+.cat.knead .eyes-open{display:none}.cat.knead .eyes-shut{display:block}
+@keyframes catKnead{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px) rotate(-12deg)}}
+/* охота: припал и виляет попой */
+.cat.crouch svg{transform-origin:50% 100%;transform:scaleY(.82) translateY(2px)}
+.cat.crouch .body,.cat.crouch .l1,.cat.crouch .l2{animation:catWiggle .22s ease-in-out infinite alternate}
+.cat.crouch .tail{animation:catTail .5s ease-in-out infinite}
+@keyframes catWiggle{from{transform:translateX(-.8px)}to{transform:translateX(.8px)}}
+/* смотрит вверх / за край */
+.cat.lookup .head{transform:rotate(-24deg) translateY(-1px)}
+.cat.peek .head{transform:rotate(32deg) translate(2px,3px)}
+.cat.peek svg{transform:translateX(6px)}
+/* точит когти */
+.cat.scratch svg{transform-origin:20px 30px;transform:rotate(-14deg)}
+.cat.scratch .l3{animation:catScratch .18s linear infinite alternate}
+.cat.scratch .l4{animation:catScratch .18s linear .09s infinite alternate}
+@keyframes catScratch{from{transform:rotate(-80deg) translateY(-2px)}to{transform:rotate(-110deg) translateY(1px)}}
+/* сердечки */
+.cat-hearts{position:absolute;left:50%;bottom:28px;width:0;height:0}
+.cat-hearts i{position:absolute;left:0;bottom:0;font-style:normal;font-size:13px;color:#e0556a;opacity:0;animation:catHeart 1.5s ease-out forwards}
+@keyframes catHeart{0%{opacity:0;transform:translate(0,0) scale(.6)}20%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-42px) scale(1.1)}}
+/* бабочка */
+.cat-fly{position:absolute;left:0;bottom:0;width:14px;height:10px;opacity:0;transition:opacity .4s ease;will-change:transform}
+.cat-fly.on{opacity:1}
+.cat-fly i{position:absolute;top:0;width:7px;height:9px;border-radius:60% 60% 50% 50%;background:linear-gradient(160deg,#b58cf0,#6d8cf0);animation:flap .18s ease-in-out infinite alternate}
+.cat-fly i:first-child{left:0;transform-origin:100% 60%}
+.cat-fly i:last-child{right:0;transform-origin:0 60%}
+@keyframes flap{from{transform:scaleX(1)}to{transform:scaleX(.25)}}
+/* мышка */
+.cat-mouse{position:absolute;left:0;bottom:0;width:20px;height:12px;opacity:0;transition:opacity .2s ease;will-change:transform}
+.cat-mouse.on{opacity:1}
+.cat-mouse svg{width:100%;height:100%;transform:scaleX(var(--dir,1));animation:catBob .16s ease-in-out infinite}
+
+/* окно уведомлений */
+#n-body{display:flex;flex-direction:column;gap:14px}
+.n-loading{display:flex;justify-content:center;gap:6px;padding:40px 0}
+.n-loading span{width:8px;height:8px;border-radius:50%;background:var(--muted);animation:nDot 1s ease-in-out infinite}
+.n-loading span:nth-child(2){animation-delay:.15s}.n-loading span:nth-child(3){animation-delay:.3s}
+@keyframes nDot{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-4px)}}
+.n-status{display:flex;align-items:center;gap:12px;padding:14px;border-radius:16px;background:var(--card);border:1px solid var(--line)}
+.n-ico{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;flex:none;background:var(--line);color:var(--muted)}
+.n-ico svg{width:22px;height:22px}
+.n-status.on .n-ico{background:var(--good-soft);color:var(--good)}
+.n-sec{display:flex;flex-direction:column;gap:8px}
+.n-h{display:flex;flex-direction:column;gap:2px;padding:0 2px}
+.n-h b{font-size:15px}
+.n-h small{font-size:12px;color:var(--muted)}
+.segctl{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;padding:3px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.segctl button{min-height:38px;border:0;border-radius:9px;background:none;color:var(--muted);font:600 14px var(--body);transition:background-color .2s ease,color .2s ease}
+.segctl button.on{background:var(--accent);color:#fff;box-shadow:0 4px 10px -6px rgba(0,0,0,.4)}
+.n-main{display:flex;align-items:center;justify-content:center}
