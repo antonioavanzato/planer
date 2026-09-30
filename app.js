@@ -12,7 +12,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "18";
+const APP_VERSION = "19";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -780,7 +780,6 @@ function sheet(html, onSubmit) {
   form.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => closeSheet(bg)));
   document.body.append(bg);
   sheetGestures(bg, form);
-  form.querySelector("[data-autofocus]")?.focus();
   return bg;
 }
 
@@ -837,7 +836,7 @@ function clientSheet(c) {
       <input type="file" accept="image/*" id="f-photo" class="visually-hidden" tabindex="-1">
       <button type="button" class="link danger" id="f-nophoto" ${c?.photo ? "" : "hidden"}>Убрать</button>
     </div>
-    <div class="field"><label class="lbl" for="f-name">Имя и фамилия</label><input class="input" id="f-name" name="name" required value="${v("name")}" ${c ? "" : "data-autofocus"}></div>
+    <div class="field"><label class="lbl" for="f-name">Имя и фамилия</label><input class="input" id="f-name" name="name" required value="${v("name")}"></div>
     <div class="field"><label class="lbl" for="f-goal">Цель</label><input class="input" id="f-goal" name="goal" placeholder="сила, масса, похудение…" value="${v("goal")}"></div>
     <div class="field"><label class="lbl" for="f-start">Ходит с</label><input class="input" id="f-start" name="startDate" type="date" value="${c?.startDate || today()}"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
