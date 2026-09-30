@@ -13,7 +13,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "25";
+const APP_VERSION = "26";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -33,7 +33,9 @@ const $app = document.getElementById("app");
 // ---------- утилиты ----------
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-const today = () => new Date().toISOString().slice(0, 10);
+// дата по местному времени телефона (toISOString дал бы UTC: в Казани с 0:00 до 3:00 было бы «вчера»)
+const localISO = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const today = () => localISO();
 const num = (v) => { const n = parseFloat(String(v).replace(",", ".")); return Number.isFinite(n) ? n : null; };
 const fmt = (n) => (n == null ? "—" : (Math.round(n * 10) / 10).toString().replace(".", ","));
 const initials = (name) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("") || "?";
@@ -442,7 +444,7 @@ function renderClient(cid) {
   const hist = ex ? exerciseHistory(cid, ex) : [];
   const first = hist[0], lastH = hist[hist.length - 1];
   const gain = first && lastH ? lastH.w - first.w : 0;
-  const monthAgo = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+  const monthAgo = localISO(new Date(Date.now() - 30 * 864e5));
   const monthVisits = new Set(ws.filter((w) => w.date > monthAgo).map((w) => w.date)).size;
   const records = ws.reduce((n, w) => n + (w.exercises || []).filter((e) => isRecord(cid, w, e)).length, 0);
 
@@ -639,7 +641,7 @@ function planSheet(cid, existing) {
     const client = existing?.clientId || cid || fd.get("client");
     const date = fd.get("date"), time = fd.get("time");
     if (!client || !date) return false;
-    if (existing) { savePlanned({ ...existing, date, time }); render(); return; }
+    if (existing) { const { reminded, ...rest } = existing; savePlanned({ ...rest, date, time }); render(); return; }
     const reps = +(bg.querySelector("#pl-rep .on")?.dataset.rep || 1);
     const taken = new Set(allOf(client).map((w) => w.date));
     let added = 0;
@@ -1049,7 +1051,8 @@ async function importData(file) {
   try {
     const data = JSON.parse(await file.text());
     if (!Array.isArray(data.clients) || !Array.isArray(data.workouts)) throw new Error("Это не файл бэкапа журнала.");
-    const items = [...data.clients.map((x) => ["clients", x]), ...data.workouts.map((x) => ["workouts", x])];
+    const okId = (x) => x && typeof x === "object" && typeof x.id === "string" && /^[\w-]{1,64}$/.test(x.id);
+    const items = [...data.clients.filter(okId).map((x) => ["clients", x]), ...data.workouts.filter(okId).map((x) => ["workouts", x])];
     for (let i = 0; i < items.length; i += 400) {
       const batch = writeBatch(db);
       items.slice(i, i + 400).forEach(([col, { id, ...rest }]) => batch.set(userDoc(col, id), rest));

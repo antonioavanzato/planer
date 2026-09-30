@@ -1,37 +1,60 @@
 /**
- * Журнал Зала — push-уведомления через Google Apps Script.
+ * Журнал Зала — push-уведомления и бэкапы через Google Apps Script.
  *
  * Установка (один раз):
  * 1. script.google.com → «Новый проект», вставить этот файл вместо Code.gs.
  * 2. ⚙️ «Настройки проекта» → «Свойства скрипта» → добавить свойство
  *    SERVICE_ACCOUNT = всё содержимое JSON-ключа сервисного аккаунта Firebase.
  * 3. Выбрать функцию install и нажать «Выполнить», разрешить доступ.
- *    Она создаст запуск функции run каждую минуту.
+ *    Она создаст запуск run каждую минуту и backup раз в неделю (пн, ~3:00).
+ *
+ * Экономия лимита Firebase (50 000 чтений в сутки бесплатно): каждую минуту читаем
+ * только записи на ближайшие дни; полную базу — лишь раз в день для утренней сводки.
  */
 const PROJECT_ID = "planer-5a6ad";
 const APP_URL = "https://antonioavanzato.github.io/planer/";
 const FS = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
+const BACKUP_FOLDER = "Журнал Зала — бэкапы";
+const BACKUPS_TO_KEEP = 12;
 
 function install() {
   ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger("run").timeBased().everyMinutes(1).create();
+  ScriptApp.newTrigger("backup").timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(3).create();
   run();
 }
 
-function run() {
-  const devices = runQuery_({ from: [{ collectionId: "devices", allDescendants: true }] });
+function devicesByUser_() {
   const byUser = {};
-  devices.forEach((d) => {
+  runQuery_({ from: [{ collectionId: "devices", allDescendants: true }] }).forEach((d) => {
     if (!d.data.token) return;
     const uid = d.name.split("/users/")[1].split("/")[0];
     (byUser[uid] = byUser[uid] || []).push(d);
   });
-  let sent = 0;
+  return byUser;
+}
+
+function run() {
+  const byUser = devicesByUser_();
+  let sent = 0, devices = 0;
   Object.keys(byUser).forEach((uid) => {
-    const clients = {};
-    list_(`users/${uid}/clients`).forEach((d) => { clients[d.id] = Object.assign({ id: d.id }, d.data); });
-    const workouts = list_(`users/${uid}/workouts`).map((d) => Object.assign({ id: d.id, _name: d.name }, d.data));
-    const planned = workouts.filter((w) => w.status === "planned" && clients[w.clientId]);
+    devices += byUser[uid].length;
+    // записи только на ближайшие дни (с запасом на часовые пояса)
+    const from = Utilities.formatDate(new Date(Date.now() - 2 * 864e5), "UTC", "yyyy-MM-dd");
+    const to = Utilities.formatDate(new Date(Date.now() + 2 * 864e5), "UTC", "yyyy-MM-dd");
+    const near = runQuery_({
+      from: [{ collectionId: "workouts" }],
+      where: { compositeFilter: { op: "AND", filters: [
+        { fieldFilter: { field: { fieldPath: "date" }, op: "GREATER_THAN_OR_EQUAL", value: { stringValue: from } } },
+        { fieldFilter: { field: { fieldPath: "date" }, op: "LESS_THAN_OR_EQUAL", value: { stringValue: to } } },
+      ] } },
+    }, `users/${uid}`).map((d) => Object.assign({ id: d.id, _name: d.name }, d.data));
+    const plannedNear = near.filter((w) => w.status === "planned");
+    const clientCache = {};
+    const clientOf = (id) => {
+      if (!(id in clientCache)) { try { clientCache[id] = get_(`users/${uid}/clients/${id}`); } catch (e) { clientCache[id] = null; } }
+      return clientCache[id];
+    };
 
     byUser[uid].forEach((devDoc) => {
       const dev = Object.assign({ id: devDoc.id }, devDoc.data);
@@ -47,20 +70,26 @@ function run() {
 
       // напоминание перед тренировкой
       if (dev.before > 0) {
-        planned.forEach((w) => {
+        plannedNear.forEach((w) => {
           const reminded = w.reminded || [];
           if (!w.time || reminded.indexOf(dev.id) >= 0) return;
           const m = minutesUntil_(w.date, w.time, now);
           if (m > dev.before || m < -10) return;
+          const c = clientOf(w.clientId); if (!c) return;
           const mins = Math.max(0, Math.round(m)), hrs = Math.round(mins / 60);
           const body = mins >= 60 ? `Через ${hrs} ${plural_(hrs, "час", "часа", "часов")}, в ${w.time}` : mins > 0 ? `Через ${mins} мин, в ${w.time}` : `Сейчас, в ${w.time}`;
-          push({ title: `Тренировка: ${clients[w.clientId].name}`, body, url: `${APP_URL}#/p/${w.id}`, tag: `w-${w.id}` });
-          patch_(w._name, { reminded: reminded.concat(dev.id) });
+          push({ title: `Тренировка: ${c.name}`, body, url: `${APP_URL}#/p/${w.id}`, tag: `w-${w.id}` });
+          w.reminded = reminded.concat(dev.id);
+          patch_(w._name, { reminded: w.reminded });
         });
       }
 
-      // утренняя сводка
+      // утренняя сводка — единственное место, где нужна вся база (раз в день)
       if (dev.morning && now.time >= dev.morning && now.time < "12:00" && dev.lastDigest !== now.date) {
+        const clients = {};
+        list_(`users/${uid}/clients`).forEach((d) => { clients[d.id] = Object.assign({ id: d.id }, d.data); });
+        const workouts = list_(`users/${uid}/workouts`).map((d) => Object.assign({ id: d.id }, d.data));
+        const planned = workouts.filter((w) => w.status === "planned" && clients[w.clientId]);
         const todays = planned.filter((w) => w.date === now.date).sort((a, b) => (a.time || "").localeCompare(b.time || ""));
         const overdue = planned.filter((w) => w.date < now.date).length;
         const ending = Object.keys(clients).map((id) => ({ c: clients[id], p: packageLeft_(clients[id], workouts, now.date) }))
@@ -77,7 +106,30 @@ function run() {
       }
     });
   });
-  console.log(`devices: ${devices.length}, sent: ${sent}`);
+  console.log(`devices: ${devices}, sent: ${sent}`);
+}
+
+/** Раз в неделю кладёт полную копию данных в папку на Google Диске и хранит последние 12. */
+function backup() {
+  const byUser = devicesByUser_();
+  const folders = DriveApp.getFoldersByName(BACKUP_FOLDER);
+  const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(BACKUP_FOLDER);
+  const stamp = Utilities.formatDate(new Date(), "Europe/Moscow", "yyyy-MM-dd");
+  Object.keys(byUser).forEach((uid) => {
+    const strip = (d) => Object.assign({ id: d.id }, d.data);
+    const data = {
+      app: "zhurnal-zala", version: 1, exportedAt: new Date().toISOString(),
+      clients: list_(`users/${uid}/clients`).map(strip),
+      workouts: list_(`users/${uid}/workouts`).map(strip),
+    };
+    folder.createFile(`zhurnal-${stamp}-${uid.slice(0, 6)}.json`, JSON.stringify(data), "application/json");
+    console.log(`backup ${uid}: ${data.clients.length} клиентов, ${data.workouts.length} записей`);
+  });
+  // удаляем старые копии
+  const files = [];
+  const it = folder.getFiles();
+  while (it.hasNext()) files.push(it.next());
+  files.sort((a, b) => b.getDateCreated() - a.getDateCreated()).slice(BACKUPS_TO_KEEP).forEach((f) => f.setTrashed(true));
 }
 
 /** Демо: сразу шлёт уведомление на все подключённые телефоны. Текст можно поменять здесь. */
@@ -85,7 +137,7 @@ function demoPush() {
   const devices = runQuery_({ from: [{ collectionId: "devices", allDescendants: true }] }).filter((d) => d.data.token);
   let sent = 0;
   devices.forEach((d) => {
-    if (send_(d, d.data.token, { title: "Тренировка: Тимур Алиев", body: "Через 1 час, в 18:00", url: APP_URL, tag: "demo" })) sent++;
+    if (send_(d, d.data.token, { title: "Тренировка: Андрей Смирнов", body: "Через 1 час, в 18:00", url: APP_URL, tag: "demo" })) sent++;
   });
   console.log(`devices: ${devices.length}, sent: ${sent}`);
 }
@@ -130,7 +182,11 @@ function api_(url, opts) {
   return JSON.parse(res.getContentText() || "{}");
 }
 function toDoc_(d) { return { name: d.name, id: d.name.split("/").pop(), data: decodeFields_(d.fields || {}) }; }
-function runQuery_(q) { return api_(`${FS}:runQuery`, { method: "post", payload: JSON.stringify({ structuredQuery: q }) }).filter((r) => r.document).map((r) => toDoc_(r.document)); }
+function runQuery_(q, parent) {
+  const url = parent ? `${FS}/${parent}:runQuery` : `${FS}:runQuery`;
+  return api_(url, { method: "post", payload: JSON.stringify({ structuredQuery: q }) }).filter((r) => r.document).map((r) => toDoc_(r.document));
+}
+function get_(path) { const d = toDoc_(api_(`${FS}/${path}`)); return Object.assign({ id: d.id }, d.data); }
 function list_(path) {
   let out = [], token = "";
   do {
