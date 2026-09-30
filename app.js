@@ -12,7 +12,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "14";
+const APP_VERSION = "15";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -118,7 +118,7 @@ function showError(err) {
 }
 
 // ---------- маршрутизация ----------
-window.addEventListener("hashchange", () => { flushDraft(); render(); });
+window.addEventListener("hashchange", () => { flushDraft(); dockState.hidden = false; dockState.lastY = 0; render(); });
 window.addEventListener("online", () => scheduleRender());
 window.addEventListener("offline", () => scheduleRender());
 const route = () => { const [, view, id] = (location.hash || "#/").split("/"); return { view: view || "", id }; };
@@ -309,14 +309,40 @@ const TAB_ICONS = {
   schedule: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`,
   more: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>`,
 };
-function tabBar(active) {
+// Док внизу: пилюля с вкладками + отдельная круглая кнопка «+» на одном уровне.
+function dock(active, fabAct, fabLabel) {
   const overdue = plannedAll().filter((w) => w.date < today()).length;
-  return `<nav class="tabbar" aria-label="Разделы">
+  return `<div class="dock ${dockState.hidden ? "is-hidden" : ""}" id="dock"><nav class="tabbar" aria-label="Разделы">
     <button class="tab ${active === "clients" ? "on" : ""}" data-go="#/">${TAB_ICONS.clients}<span>Клиенты</span></button>
     <button class="tab ${active === "schedule" ? "on" : ""}" data-go="#/s">${TAB_ICONS.schedule}<span>Расписание</span>${overdue ? `<i class="dot" aria-label="Есть неотмеченные"></i>` : ""}</button>
     <button class="tab" data-act="menu">${TAB_ICONS.more}<span>Ещё</span></button>
-  </nav>`;
+  </nav><button class="fab" data-act="${fabAct}" aria-label="${fabLabel}">+</button></div>`;
 }
+
+// Прячем пилюлю при прокрутке вниз и показываем при прокрутке вверх.
+// Меняется только класс (transform/opacity в CSS), поэтому прокрутка не тормозит.
+const dockState = { hidden: false, lastY: 0, ticking: false, route: "" };
+function setDockHidden(v) {
+  if (dockState.hidden === v) return;
+  dockState.hidden = v;
+  document.getElementById("dock")?.classList.toggle("is-hidden", v);
+}
+window.addEventListener("scroll", () => {
+  if (dockState.ticking) return;
+  dockState.ticking = true;
+  requestAnimationFrame(() => {
+    dockState.ticking = false;
+    const y = Math.max(0, window.scrollY);
+    const max = document.documentElement.scrollHeight - innerHeight;
+    const dy = y - dockState.lastY;
+    if (y < 60) setDockHidden(false);                 // у самого верха — всегда видно
+    else if (y > max - 4 && max > 0) { /* пружина iOS у низа — не дёргаем */ }
+    else if (dy > 8) setDockHidden(true);             // вниз
+    else if (dy < -8) setDockHidden(false);           // вверх
+    else return;                                      // мелкое дрожание пальца — не считаем
+    dockState.lastY = y;
+  });
+}, { passive: true });
 
 function renderClients() {
   const q = state.query.toLowerCase();
@@ -350,8 +376,7 @@ function renderClients() {
     </div>
     ${rows ? `<div class="list">${rows}</div>` : `<div class="list"><div class="empty">${state.clients.length ? "Никого не найдено." : state.loaded ? "Пока нет клиентов.<br>Нажми «+», чтобы добавить первого." : "Загрузка…"}</div></div>`}
   </main>
-  <button class="fab" data-act="newClient" aria-label="Новый клиент">+</button>
-  ${tabBar("clients")}`;
+  ${dock("clients", "newClient", "Новый клиент")}`;
 
   const s = document.getElementById("search");
   s.oninput = () => { state.query = s.value; const pos = s.selectionStart; renderClients(); const n = document.getElementById("search"); n.focus(); n.setSelectionRange(pos, pos); };
@@ -489,8 +514,7 @@ function renderSchedule() {
       <div class="list plan-list">${groups[k].map((w) => planRow(w)).join("")}</div></section>`).join("")
       : `<div class="list"><div class="empty">Расписание пустое.<br>Нажми «+», чтобы запланировать тренировку.</div></div>`}
   </main>
-  <button class="fab" data-act="planSheet" aria-label="Запланировать">+</button>
-  ${tabBar("schedule")}`;
+  ${dock("schedule", "planSheet", "Запланировать")}`;
 }
 
 function renderPlanned(id) {

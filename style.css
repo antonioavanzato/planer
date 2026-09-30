@@ -133,14 +133,33 @@ img.ava{object-fit:cover;padding:0;background:var(--line)}
 select.input{appearance:none}
 .btn .ico{width:18px;height:18px;vertical-align:-3px;margin-right:8px}
 
-/* нижняя панель вкладок */
-.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:space-around;background:color-mix(in srgb,var(--ground) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px 8px calc(env(safe-area-inset-bottom,0px) + 6px)}
-.tab{position:relative;flex:1;max-width:140px;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;color:var(--muted);font-size:11px;font-weight:600;padding:4px 0}
-.tab svg{width:24px;height:24px}
-.tab.on{color:var(--accent)}
-.tab .dot{position:absolute;top:3px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--bad)}
-body:has(.tabbar) .screen{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 170px)}
-body:has(.tabbar) .fab{bottom:calc(env(safe-area-inset-bottom,0px) + 84px)}
+/* нижний док: пилюля с вкладками + круглая «+» */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:5;pointer-events:none;
+  padding:0 16px calc(env(safe-area-inset-bottom,0px) + 14px);
+  display:flex;justify-content:center;align-items:center;gap:12px}
+.dock > *{pointer-events:auto}
+.tabbar{display:flex;align-items:center;gap:2px;height:62px;padding:0 6px;border-radius:999px;
+  background:color-mix(in srgb,var(--card) 93%,transparent);
+  -webkit-backdrop-filter:blur(18px) saturate(1.6);backdrop-filter:blur(18px) saturate(1.6);
+  border:1px solid color-mix(in srgb,var(--line) 70%,transparent);
+  box-shadow:0 12px 30px -12px rgba(20,24,20,.35),0 2px 6px -2px rgba(20,24,20,.12);
+  transform:translate3d(0,0,0);opacity:1;
+  transition:transform .42s cubic-bezier(.22,1,.36,1),opacity .3s ease;will-change:transform,opacity}
+.tab{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  width:80px;height:50px;border:0;border-radius:999px;background:none;color:var(--muted);font-size:10.5px;font-weight:600;
+  transition:background-color .2s ease,color .2s ease}
+.tab svg{width:22px;height:22px}
+.tab.on{color:var(--accent);background:var(--accent-soft)}
+.tab:active{transform:scale(.96)}
+.tab .dot{position:absolute;top:6px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 2px var(--card)}
+.dock .fab{position:static;flex:none;width:62px;height:62px;border-radius:50%;
+  box-shadow:0 12px 26px -10px rgba(194,134,28,.7);transition:transform .2s ease}
+.dock .fab:active{transform:scale(.94)}
+/* скрытие: пилюля плавно уезжает вниз, кнопка «+» остаётся на месте */
+.dock.is-hidden .tabbar{transform:translate3d(0,calc(100% + 26px + env(safe-area-inset-bottom,0px)),0);opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.tabbar{transition:opacity .2s ease}.dock.is-hidden .tabbar{transform:none}}
+body:has(.dock) .screen{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 110px)}
+@media (max-width:360px){.tab{width:70px}}
 
 /* вес: −/+ 2,5 кг */
 .stepper{display:flex;align-items:center;gap:3px}
@@ -159,5 +178,5 @@ body:has(.tabbar) .fab{bottom:calc(env(safe-area-inset-bottom,0px) + 84px)}
 /* плашка «Отменить» */
 .toast{position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);z-index:30;max-width:528px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px;background:var(--ink);color:var(--ground);border-radius:14px;padding:12px 14px;font-size:14px;box-shadow:0 10px 30px -10px rgba(0,0,0,.4)}
 .toast .link{color:var(--accent);font-size:14px}
-body:has(.tabbar) .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 80px)}
+body:has(.dock) .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 90px)}
 .sets td:nth-child(4) input{width:52px}
