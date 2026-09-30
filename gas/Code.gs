@@ -6,7 +6,7 @@
  * 2. ⚙️ «Настройки проекта» → «Свойства скрипта» → добавить свойство
  *    SERVICE_ACCOUNT = всё содержимое JSON-ключа сервисного аккаунта Firebase.
  * 3. Выбрать функцию install и нажать «Выполнить», разрешить доступ.
- *    Она создаст запуск функции run каждые 5 минут.
+ *    Она создаст запуск функции run каждую минуту.
  */
 const PROJECT_ID = "planer-5a6ad";
 const APP_URL = "https://antonioavanzato.github.io/planer/";
@@ -14,7 +14,7 @@ const FS = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases
 
 function install() {
   ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger("run").timeBased().everyMinutes(5).create();
+  ScriptApp.newTrigger("run").timeBased().everyMinutes(1).create();
   run();
 }
 

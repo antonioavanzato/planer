@@ -13,7 +13,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "24";
+const APP_VERSION = "25";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -955,7 +955,7 @@ function menuSheet() {
 }
 
 // ---------- push-уведомления ----------
-// Телефон регистрируется в users/{uid}/devices/{deviceId}; рассылку делает gas/Code.gs (Google Apps Script) каждые 5 минут.
+// Телефон регистрируется в users/{uid}/devices/{deviceId}; рассылку делает gas/Code.gs (Google Apps Script) каждую минуту.
 const DEVICE_KEY = "zhurnal-device-id";
 function deviceId() {
   try { let id = localStorage.getItem(DEVICE_KEY); if (!id) { id = uid(); localStorage.setItem(DEVICE_KEY, id); } return id; }
@@ -993,7 +993,7 @@ async function fillNotify(bg) {
   body.innerHTML = `
     <div class="n-status ${on ? "on" : ""}">
       <span class="n-ico">${MENU_ICONS.bell}</span>
-      <span class="menu-txt"><b>${reason ? "Недоступны" : on ? "Включены на этом телефоне" : "Выключены"}</b><small>${reason || (on ? "Приходят с задержкой до 5 минут" : "Включи, чтобы не пропустить тренировку")}</small></span>
+      <span class="menu-txt"><b>${reason ? "Недоступны" : on ? "Включены на этом телефоне" : "Выключены"}</b><small>${reason || (on ? "Приходят с задержкой до минуты" : "Включи, чтобы не пропустить тренировку")}</small></span>
     </div>
     ${reason ? "" : `
     <div class="n-sec"><div class="n-h"><b>Сводка на день</b><small>Утром: кто придёт и у кого кончается абонемент</small></div>
@@ -1003,7 +1003,7 @@ async function fillNotify(bg) {
     <div class="err" id="n-err"></div>
     <button type="submit" class="btn block n-main">${on ? "Сохранить" : `${BELL_ICON}Включить уведомления`}</button>
     ${on ? `<div class="menu-group">
-      <button type="button" class="menu-row" id="n-test"><span class="menu-ico">${MENU_ICONS.bell}</span><span class="menu-txt"><b>Прислать тестовое</b><small>Придёт в течение 5 минут</small></span></button>
+      <button type="button" class="menu-row" id="n-test"><span class="menu-ico">${MENU_ICONS.bell}</span><span class="menu-txt"><b>Прислать тестовое</b><small>Придёт в течение минуты</small></span></button>
       <button type="button" class="menu-row danger" id="n-off"><span class="menu-ico">${MENU_ICONS.out}</span><span class="menu-txt"><b>Выключить на этом телефоне</b></span></button>
     </div>` : ""}`}`;
   body.querySelectorAll(".segctl button").forEach((b) => b.addEventListener("click", () => {
@@ -1015,7 +1015,7 @@ async function fillNotify(bg) {
   });
   body.querySelector("#n-test")?.addEventListener("click", () => {
     setDoc(ref, { testRequestedAt: Date.now() }, { merge: true }).catch(showError);
-    showError({ message: "Тестовое уведомление придёт в течение 5 минут." });
+    showError({ message: "Тестовое уведомление придёт в течение минуты." });
   });
 }
 
