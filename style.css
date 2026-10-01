@@ -213,7 +213,7 @@ body:has(.dock) .toast{bottom:calc(env(safe-area-inset-bottom,0px) + 90px)}
   animation:splashIn 1s cubic-bezier(.22,1,.36,1) both}
 .splash-ico{width:52px;height:52px;color:#e0a33a}
 .splash-hi{font:600 13px var(--body);letter-spacing:.14em;text-transform:uppercase;color:#e0a33a}
-.splash-q{margin:0;font:800 clamp(28px,9vw,44px)/1.08 var(--body);letter-spacing:-.01em;text-transform:uppercase;animation:splashIn 1s .1s cubic-bezier(.22,1,.36,1) both}
+.splash-q{margin:0;white-space:nowrap;font:700 clamp(20px,6.4vw,28px)/1.15 -apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;letter-spacing:-.02em;animation:splashIn 1s .1s cubic-bezier(.22,1,.36,1) both}
 .splash-tag{font:500 11px var(--body);letter-spacing:.2em;text-transform:uppercase;color:rgba(243,238,226,.45)}
 @keyframes splashIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.splash-in,.splash-q{animation:none}}

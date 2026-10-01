@@ -28,19 +28,19 @@
 /* Короткая фраза для Яны: читается за секунду. Каждый запуск — другая, без повтора подряд. */
 (function () {
   var Q = [
-    "Яна —<br>ты лучшая",
-    "Яна —<br>ты сила",
-    "Яна,<br>ты вдохновляешь",
-    "Сегодня —<br>твой день",
-    "Яна,<br>всё получится",
-    "Сильнее<br>с каждым днём",
-    "Яна —<br>тренер №1"
+    "Яна — ты лучшая",
+    "Яна — ты сила",
+    "Ты вдохновляешь",
+    "Сегодня твой день",
+    "Всё получится",
+    "Сильнее каждый день",
+    "Яна — тренер №1"
   ];
   var last = -1, i;
   try { last = +localStorage.getItem("splash-q2"); } catch (e) {}
   do { i = Math.floor(Math.random() * Q.length); } while (i === last && Q.length > 1);
   try { localStorage.setItem("splash-q2", i); } catch (e) {}
-  document.getElementById("splash-q").innerHTML = Q[i];
+  document.getElementById("splash-q").textContent = Q[i];
   window.__splashStart = Date.now();
   var sp = document.getElementById("splash");
   sp.addEventListener("click", function () { sp.classList.add("out"); setTimeout(function () { sp.remove(); }, 650); });
