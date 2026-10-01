@@ -14,7 +14,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "27";
+const APP_VERSION = "28";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -166,9 +166,30 @@ function render() {
   const { view: v0 } = route();
   kitty.setFloor(state.user && v0 === "" ? document.querySelector(".status") : null);
 }
+// «Заявки» — отдельное приложение yana-admin (свой код, своя база в Яндекс Облаке, свой вход).
+// Показываем его как есть в окне; создаём один раз и держим, чтобы не перезагружалось при переключении вкладок.
+const ADMIN_URL = new URL("../yana-admin/", location.href).href;
+let adminFrame = null;
+function showAdmin(on) {
+  if (on && !adminFrame) {
+    adminFrame = document.createElement("iframe");
+    adminFrame.className = "admin-frame";
+    adminFrame.title = "Заявки";
+    adminFrame.src = ADMIN_URL;
+    document.body.append(adminFrame);
+  }
+  adminFrame?.classList.toggle("on", on);
+  document.body.classList.toggle("admin-open", on);
+}
+function renderAdmin() {
+  $app.innerHTML = dock("admin", null, "");
+}
+
 function renderScreen() {
+  showAdmin(!!state.user && route().view === "z");
   if (!state.user) return renderLogin();
   const { view, id } = route();
+  if (view === "z") return renderAdmin();
   if (view === "c" && id) return renderClient(id);
   if (view === "w" && id) return renderWorkout(id);
   if (view === "p" && id) return renderPlanned(id);
@@ -335,6 +356,7 @@ const PEN = `<svg class="ico-s" viewBox="0 0 24 24" fill="none" stroke="currentC
 const TAB_ICONS = {
   clients: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.7 3 2.5 3.5 5.2"/></svg>`,
   schedule: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`,
+  admin: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>`,
   more: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>`,
 };
 // Док внизу: пилюля с вкладками + отдельная круглая кнопка «+» на одном уровне.
@@ -345,8 +367,9 @@ function dock(active, fabAct, fabLabel) {
   return `<div class="dock ${dockState.hidden ? "is-hidden" : ""}" id="dock"><nav class="tabbar" aria-label="Разделы">
     <button class="tab ${active === "clients" ? "on" : ""}" data-go="#/">${TAB_ICONS.clients}<span>Клиенты</span></button>
     <button class="tab ${active === "schedule" ? "on" : ""}" data-go="#/s">${TAB_ICONS.schedule}<span>Расписание</span>${badge ? `<i class="badge ${overdue ? "bad" : ""}" aria-label="Записей: ${badge}">${badge > 99 ? "99+" : badge}</i>` : ""}</button>
+    <button class="tab ${active === "admin" ? "on" : ""}" data-go="#/z">${TAB_ICONS.admin}<span>Заявки</span></button>
     <button class="tab" data-act="menu">${TAB_ICONS.more}<span>Ещё</span></button>
-  </nav><button class="fab" data-act="${fabAct}" aria-label="${fabLabel}">+</button></div>`;
+  </nav>${fabAct ? `<button class="fab" data-act="${fabAct}" aria-label="${fabLabel}">+</button>` : ""}</div>`;
 }
 
 // Прячем пилюлю при прокрутке вниз и показываем при прокрутке вверх.
@@ -1229,10 +1252,12 @@ if ("serviceWorker" in navigator) {
 async function hardUpdate() {
   flushDraft();
   try {
+    // только своё: на этом же адресе живут «Заявки» и сайт, их обработчики и кеши не трогаем
+    const mine = new URL("./", location.href).href;
     const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
-    await Promise.all(regs.map((r) => r.unregister()));
+    await Promise.all(regs.filter((r) => r.scope === mine).map((r) => r.unregister()));
     const keys = await caches.keys();
-    await Promise.all(keys.map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => k.startsWith("zhurnal-")).map((k) => caches.delete(k)));
   } catch {}
   location.replace(location.pathname + "?v=" + Date.now() + location.hash);
 }
