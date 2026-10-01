@@ -14,7 +14,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "39";
+const APP_VERSION = "40";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -169,7 +169,7 @@ function render() {
 // «Заявки» — раздел в папке zayavki/ (перенесён из yana-admin 1:1: свой код, своя база в Яндекс Облаке, свой вход).
 // Показываем его как есть в окне; создаём один раз и держим, чтобы не перезагружалось при переключении вкладок.
 const ADMIN_URL = new URL("zayavki/", location.href).href;
-let adminFrame = null;
+let adminFrame = null, adminModalOpen = false;
 let adminReady = null;
 function ensureAdmin() {
   if (!adminFrame) {
@@ -239,6 +239,12 @@ function themeAdmin() {
     const nav = d.getElementById("bottomNav"), top = d.querySelector(".topbar");
     if (nav && top) top.append(nav);
     if (top) adminStatusRow(d, top);
+    // открыта карточка заявки — прячем пилюлю, чтобы не перекрывала кнопки внизу
+    const modal = d.querySelector(".modal-sheet");
+    if (modal) new d.defaultView.MutationObserver(() => {
+      adminModalOpen = modal.classList.contains("open");
+      setDockHidden(adminModalOpen);
+    }).observe(modal, { attributes: true, attributeFilter: ["class"] });
     // прокрутка внутри «Заявок» прячет и показывает пилюлю Журнала, как в остальных разделах
     const w = adminFrame.contentWindow, root = d.documentElement;
     w.addEventListener("scroll", () => trackScroll(() => w.scrollY, () => root.scrollHeight - w.innerHeight), { passive: true });
@@ -440,6 +446,7 @@ function dock(active, fabAct, fabLabel) {
 // Меняется только класс (transform/opacity в CSS), поэтому прокрутка не тормозит.
 const dockState = { hidden: false, lastY: 0, ticking: false, route: "" };
 function setDockHidden(v) {
+  if (adminModalOpen && !v && document.body.classList.contains("admin-open")) return;
   if (dockState.hidden === v) return;
   dockState.hidden = v;
   document.getElementById("dock")?.classList.toggle("is-hidden", v);
