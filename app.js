@@ -14,7 +14,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "35";
+const APP_VERSION = "36";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -219,6 +219,14 @@ body,input,textarea,select,button{font-family:"Manrope",system-ui,-apple-system,
 .modal-sheet:not(.open){box-shadow:none!important}
 /* колокольчик и выход «Заявок» живут в «Ещё» Журнала */
 #bellBtn,.topbar .icon-btn[onclick^="doLogout"]{display:none!important}
+/* строка «дата · статус» — как в остальных разделах Журнала */
+#lastUpdated,#topbarDatePill{display:none!important}
+.j-navrow{display:flex;justify-content:space-between;align-items:center;min-height:32px;gap:8px;margin:12px -8px 4px}
+.j-meta{font-size:12px;color:var(--ink-60)}
+.j-sync{font-size:11px;font-weight:600;color:var(--ink-60);display:flex;align-items:center;gap:5px}
+.j-sync i{width:7px;height:7px;border-radius:50%;background:var(--done);display:inline-block}
+.j-sync.pending i{background:var(--primary)}
+.j-sync.offline i{background:var(--ink-30)}
 `;
 function themeAdmin() {
   try {
@@ -230,6 +238,7 @@ function themeAdmin() {
     d.head.append(font, st);
     const nav = d.getElementById("bottomNav"), top = d.querySelector(".topbar");
     if (nav && top) top.append(nav);
+    if (top) adminStatusRow(d, top);
     // прокрутка внутри «Заявок» прячет и показывает пилюлю Журнала, как в остальных разделах
     const w = adminFrame.contentWindow, root = d.documentElement;
     w.addEventListener("scroll", () => trackScroll(() => w.scrollY, () => root.scrollHeight - w.innerHeight), { passive: true });
@@ -1076,6 +1085,27 @@ function menuSheet() {
   const zout = document.getElementById("zout");
   if (zout) zout.onclick = adminLogout;
   document.getElementById("logout").onclick = () => { document.querySelector(".sheet-bg")?.close?.(); signOut(auth); };
+}
+
+// Строка «дата · статус» сверху «Заявок», как в «Клиентах» и «Расписании».
+// Статус берём из собственной строки «Заявок» об обновлении (её саму прячем).
+function adminStatusRow(d, top) {
+  const row = d.createElement("div"); row.className = "j-navrow";
+  row.innerHTML = `<span class="j-meta"></span><span class="j-sync"><i></i><span></span></span>`;
+  top.prepend(row);
+  const src = d.getElementById("lastUpdated"), w = d.defaultView;
+  const upd = () => {
+    row.querySelector(".j-meta").textContent = dateRu(today());
+    const t = src?.textContent || "", sync = row.querySelector(".j-sync");
+    const [cls, label] = !w.navigator.onLine ? ["offline", "Офлайн"]
+      : /Не удалось/.test(t) ? ["offline", "Нет связи"]
+      : /Загрузка/.test(t) ? ["pending", "Обновление…"] : ["", "В облаке"];
+    sync.className = "j-sync " + cls; sync.lastChild.textContent = label;
+  };
+  if (src) new w.MutationObserver(upd).observe(src, { childList: true, subtree: true, characterData: true });
+  w.addEventListener("online", upd); w.addEventListener("offline", upd);
+  d.addEventListener("visibilitychange", upd);
+  upd();
 }
 
 // Колокольчик и выход раздела «Заявки» — вызываем их собственный код внутри окна раздела.
