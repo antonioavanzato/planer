@@ -14,7 +14,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "33";
+const APP_VERSION = "34";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -170,15 +170,20 @@ function render() {
 // Показываем его как есть в окне; создаём один раз и держим, чтобы не перезагружалось при переключении вкладок.
 const ADMIN_URL = new URL("zayavki/", location.href).href;
 let adminFrame = null;
-function showAdmin(on) {
-  if (on && !adminFrame) {
+let adminReady = null;
+function ensureAdmin() {
+  if (!adminFrame) {
     adminFrame = document.createElement("iframe");
     adminFrame.className = "admin-frame";
     adminFrame.title = "Заявки";
     adminFrame.src = ADMIN_URL;
-    adminFrame.addEventListener("load", themeAdmin);
+    adminReady = new Promise((res) => adminFrame.addEventListener("load", () => { themeAdmin(); res(adminFrame.contentWindow); }));
     document.body.append(adminFrame);
   }
+  return adminReady;
+}
+function showAdmin(on) {
+  if (on) ensureAdmin();
   adminFrame?.classList.toggle("on", on);
   document.body.classList.toggle("admin-open", on);
 }
@@ -212,6 +217,8 @@ body,input,textarea,select,button{font-family:"Manrope",system-ui,-apple-system,
 .topbar .nav-item.active{background:var(--card)!important;color:var(--primary)!important;box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .scroll-area{padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))!important}
 .modal-sheet:not(.open){box-shadow:none!important}
+/* колокольчик и выход «Заявок» живут в «Ещё» Журнала */
+#bellBtn,.topbar .icon-btn[onclick^="doLogout"]{display:none!important}
 `;
 function themeAdmin() {
   try {
@@ -1054,13 +1061,42 @@ function menuSheet() {
       ${menuRow("upd", "sync", "Обновить приложение", "Если что-то выглядит по-старому")}
     </div>
     <input type="file" accept="application/json" id="imp" class="visually-hidden" tabindex="-1">
+    <div class="menu-sec">Заявки с сайта</div>
+    <div class="menu-group">
+      ${menuRow("znotif", "bell", "Уведомления о заявках", adminPushOn() ? "Включены" : "Новые записи с сайта")}
+      ${adminLoggedIn() ? menuRow("zout", "out", "Выйти из «Заявок»", "Журнал останется открыт") : ""}
+    </div>
     <div class="menu-group"><button type="button" class="menu-row danger" id="logout"><span class="menu-ico">${MENU_ICONS.out}</span><span class="menu-txt"><b>Выйти</b></span></button></div>
   `, () => false);
   document.getElementById("exp").onclick = exportData;
   document.getElementById("upd").onclick = hardUpdate;
   document.getElementById("notif").onclick = () => { document.querySelector(".sheet-bg")?.remove(); notifySheet(); };
   document.getElementById("imp").onchange = (e) => importData(e.target.files[0]);
+  document.getElementById("znotif").onclick = adminNotify;
+  const zout = document.getElementById("zout");
+  if (zout) zout.onclick = adminLogout;
   document.getElementById("logout").onclick = () => { document.querySelector(".sheet-bg")?.close?.(); signOut(auth); };
+}
+
+// Колокольчик и выход раздела «Заявки» — вызываем их собственный код внутри окна раздела.
+const ADMIN_TOKEN = "yp_admin_token";
+const adminPushOn = () => "Notification" in window && Notification.permission === "granted";
+function adminLoggedIn() { try { return !!localStorage.getItem(ADMIN_TOKEN); } catch { return false; } }
+async function adminNotify() {
+  // разрешение спрашиваем прямо по нажатию (iOS требует жест); сайт общий, оно подходит и «Заявкам»
+  if ("Notification" in window && Notification.permission === "default") {
+    try { await Notification.requestPermission(); } catch {}
+  }
+  document.querySelector(".sheet-bg")?.close?.();
+  const w = await ensureAdmin();
+  if (!adminLoggedIn()) { showError({ message: "Сначала войди в «Заявки» — потом включим уведомления." }); location.hash = "#/z"; return; }
+  await w.toggleNotifications?.();
+}
+async function adminLogout() {
+  document.querySelector(".sheet-bg")?.close?.();
+  if (adminFrame) (await ensureAdmin()).doLogout?.();
+  else try { localStorage.removeItem(ADMIN_TOKEN); } catch {}
+  showError({ message: "Вы вышли из «Заявок»." });
 }
 
 // ---------- push-уведомления ----------
