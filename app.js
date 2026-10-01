@@ -14,7 +14,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "28";
+const APP_VERSION = "29";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -176,11 +176,45 @@ function showAdmin(on) {
     adminFrame.className = "admin-frame";
     adminFrame.title = "Заявки";
     adminFrame.src = ADMIN_URL;
+    adminFrame.addEventListener("load", themeAdmin);
     document.body.append(adminFrame);
   }
   adminFrame?.classList.toggle("on", on);
   document.body.classList.toggle("admin-open", on);
 }
+// Перекрашиваем «Заявки» в цвета журнала. Меняем только вид этого окна (те же переменные CSS),
+// сам код и данные «Заявок» не трогаем; отдельное приложение «Заявки» остаётся в своём оформлении.
+const ADMIN_THEME = `
+:root{
+  --primary:#c2861c; --primary-mid:#a8721a; --primary-pale:#f5e7cc; --accent:#c2861c;
+  --surface:#f7f8f5; --surface-deep:#e8ebe6; --card:#ffffff; --white:#ffffff;
+  --ink:#1b1f1c; --ink-60:rgba(27,31,28,.6); --ink-30:rgba(27,31,28,.32); --ink-07:rgba(27,31,28,.09);
+  --done:#2f8a4e; --done-bg:#dcefe1; --new:#c2861c; --new-bg:#f5e7cc; --danger:#b23b30; --danger-bg:#f8e3e0;
+}
+@media (prefers-color-scheme:dark){:root{
+  color-scheme:dark;
+  --primary:#e0a33a; --primary-mid:#c98f2a; --primary-pale:#3a2e17; --accent:#e0a33a;
+  --surface:#161a17; --surface-deep:#232924; --card:#1f2420; --white:#1f2420;
+  --ink:#eef0ec; --ink-60:rgba(238,240,236,.62); --ink-30:rgba(238,240,236,.34); --ink-07:rgba(238,240,236,.1);
+  --done:#5cc07c; --done-bg:#1c3324; --new:#e0a33a; --new-bg:#3a2e17; --danger:#e56b5f; --danger-bg:#3a1f1c;
+}}
+body,input,textarea,select,button{font-family:"Manrope",system-ui,-apple-system,sans-serif!important}
+.login-title,.topbar-name,.bcard-name,.bcard-time,[class*="title"],h1,h2,h3{font-family:"Manrope",system-ui,sans-serif!important}
+.icon-btn.bell-on{background:var(--primary-pale)!important}
+.bottom-nav{background:color-mix(in srgb,var(--card) 93%,transparent)!important;border:1px solid var(--ink-07)!important;
+  box-shadow:0 12px 30px -12px rgba(0,0,0,.35)!important}
+`;
+function themeAdmin() {
+  try {
+    const d = adminFrame.contentDocument; if (!d || d.getElementById("journal-theme")) return;
+    const font = d.createElement("link");
+    font.rel = "stylesheet";
+    font.href = "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap";
+    const st = d.createElement("style"); st.id = "journal-theme"; st.textContent = ADMIN_THEME;
+    d.head.append(font, st);
+  } catch (e) { console.warn("theme", e); }
+}
+
 function renderAdmin() {
   $app.innerHTML = dock("admin", null, "");
 }
