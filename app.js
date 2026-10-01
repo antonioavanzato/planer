@@ -14,7 +14,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "29";
+const APP_VERSION = "30";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -201,8 +201,17 @@ const ADMIN_THEME = `
 body,input,textarea,select,button{font-family:"Manrope",system-ui,-apple-system,sans-serif!important}
 .login-title,.topbar-name,.bcard-name,.bcard-time,[class*="title"],h1,h2,h3{font-family:"Manrope",system-ui,sans-serif!important}
 .icon-btn.bell-on{background:var(--primary-pale)!important}
-.bottom-nav{background:color-mix(in srgb,var(--card) 93%,transparent)!important;border:1px solid var(--ink-07)!important;
-  box-shadow:0 12px 30px -12px rgba(0,0,0,.35)!important}
+/* своё нижнее меню «Заявок» становится переключателем в шапке — внизу остаётся одна пилюля Журнала */
+.topbar .bottom-nav,.topbar .bottom-nav.nav-hidden{position:static!important;transform:none!important;opacity:1!important;pointer-events:auto!important;
+  width:auto!important;max-width:none!important;height:38px!important;margin:.85rem 0 0!important;padding:3px!important;gap:3px;
+  background:var(--surface-deep)!important;border:0!important;border-radius:12px!important;box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;z-index:auto!important}
+.topbar .nav-item{flex-direction:row!important;gap:6px!important;border-radius:9px!important;color:var(--ink-60)!important}
+.topbar .nav-item svg{width:15px!important;height:15px!important;transform:none!important}
+.topbar .nav-item span{font-size:.8rem!important;text-transform:none!important;letter-spacing:0!important}
+.topbar .nav-item.active{background:var(--card)!important;color:var(--primary)!important;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.scroll-area{padding-bottom:1.5rem!important}
+.modal-sheet:not(.open){box-shadow:none!important}
 `;
 function themeAdmin() {
   try {
@@ -212,6 +221,8 @@ function themeAdmin() {
     font.href = "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap";
     const st = d.createElement("style"); st.id = "journal-theme"; st.textContent = ADMIN_THEME;
     d.head.append(font, st);
+    const nav = d.getElementById("bottomNav"), top = d.querySelector(".topbar");
+    if (nav && top) top.append(nav);
   } catch (e) { console.warn("theme", e); }
 }
 
