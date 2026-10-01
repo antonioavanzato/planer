@@ -14,7 +14,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "31";
+const APP_VERSION = "32";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -166,9 +166,9 @@ function render() {
   const { view: v0 } = route();
   kitty.setFloor(state.user && v0 === "" ? document.querySelector(".status") : null);
 }
-// «Заявки» — отдельное приложение yana-admin (свой код, своя база в Яндекс Облаке, свой вход).
+// «Заявки» — раздел в папке zayavki/ (перенесён из yana-admin 1:1: свой код, своя база в Яндекс Облаке, свой вход).
 // Показываем его как есть в окне; создаём один раз и держим, чтобы не перезагружалось при переключении вкладок.
-const ADMIN_URL = new URL("../yana-admin/", location.href).href;
+const ADMIN_URL = new URL("zayavki/", location.href).href;
 let adminFrame = null;
 function showAdmin(on) {
   if (on && !adminFrame) {

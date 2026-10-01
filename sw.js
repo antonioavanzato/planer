@@ -1,6 +1,6 @@
 // Кеш оболочки приложения, чтобы оно открывалось без интернета.
 // Данные кеширует сам Firestore (IndexedDB).
-const CACHE = "zhurnal-v31";
+const CACHE = "zhurnal-v32";
 const SHELL = ["./", "index.html", "style.css", "app.js", "cat.js", "share.js", "firebase-config.js", "manifest.webmanifest", "icons/icon.svg", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -12,6 +12,8 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET") return;
+  // раздел «Заявки» живёт сам по себе (свой service worker), Журнал его не кеширует
+  if (url.pathname.includes("/zayavki/")) return;
   // запросы к базе и авторизации не трогаем
   if (url.hostname.endsWith("googleapis.com") && !url.hostname.startsWith("fonts.")) return;
   const isShell = url.origin === location.origin;

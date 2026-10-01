@@ -1,0 +1,1523 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="theme-color" content="#2a5254"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,400;0,500;0,600;1,400&family=Rubik:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icon/logo.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="icon/logo.png"/>
+<meta name="apple-mobile-web-app-title" content="Заявки"/>
+<title>Заявки — Яна</title>
+<style>
+:root {
+  --primary:      #2a5254;
+  --primary-mid:  #3d7678;
+  --primary-pale: #e9f3f2;
+  --accent:       #c9a96e;
+  --surface:      #fbfaf7;
+  --surface-deep: #ede9e3;
+  --card:         #ffffff;
+  --ink:          #0f0d0b;
+  --ink-60:       rgba(15,13,11,.6);
+  --ink-30:       rgba(15,13,11,.32);
+  --ink-07:       rgba(15,13,11,.08);
+  --white:        #ffffff;
+  --ease:         cubic-bezier(.16,1,.3,1);
+  --ease-out:     cubic-bezier(.22,1,.36,1);
+  --safe-top:     env(safe-area-inset-top, 0px);
+  --safe-bottom:  env(safe-area-inset-bottom, 0px);
+  --new:      #d97706;
+  --new-bg:   #fff7ec;
+  --done:     #2a5254;
+  --done-bg:  #e6f4f4;
+  --danger:   #b91c1c;
+  --danger-bg:#fef2f2;
+  --wa:       #25d366;
+  --wa-bg:    #eafff2;
+  --imsg:     #0a7cff;
+  --imsg-bg:  #eaf3ff;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: none; }
+body {
+  font-family: 'Jost', sans-serif;
+  background: var(--surface);
+  color: var(--ink);
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+.screen { display: none; flex-direction: column; min-height: 100dvh; }
+.screen.active { display: flex; }
+
+.login-wrap {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 2.5rem 1.75rem; text-align: center;
+}
+.login-title {
+  font-family: 'Rubik', sans-serif; font-size: 2.4rem; font-weight: 300;
+  margin-bottom: 2.5rem; letter-spacing: -.03em; line-height: 1;
+}
+.login-title em { font-style: italic; color: var(--primary); }
+#loginForm { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: .85rem; }
+#loginForm input {
+  width: 100%; padding: 1.15rem 1.2rem; border-radius: 16px;
+  border: 1px solid var(--ink-07); background: var(--white);
+  color: var(--ink);
+  font-family: 'Jost', sans-serif; font-size: 1rem;
+  outline: none; transition: border-color .2s;
+}
+#loginForm input:-webkit-autofill,
+#loginForm input:-webkit-autofill:hover,
+#loginForm input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 30px var(--white) inset !important;
+  -webkit-text-fill-color: var(--ink) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+#loginForm input:focus { border-color: var(--primary); }
+#loginForm .btn-full { margin-top: .35rem; }
+.login-error { color: var(--danger); font-size: .85rem; margin-top: .5rem; min-height: 1.2rem; }
+
+.topbar {
+  position: sticky; top: 0; z-index: 200;
+  background: var(--surface);
+  border-bottom: 1px solid var(--ink-07);
+  padding: calc(1.1rem + var(--safe-top)) 1.5rem 1rem;
+  flex-shrink: 0;
+}
+.topbar-row { display: flex; align-items: center; gap: .65rem; }
+.topbar-name {
+  font-family: 'Rubik', sans-serif;
+  font-size: 1.3rem; font-weight: 300;
+  letter-spacing: -.01em;
+}
+.topbar-name em { font-style: italic; font-weight: 700; color: var(--primary); }
+.topbar-sub { font-size: .78rem; color: var(--ink-60); margin-top: .12rem; }
+.topbar-titles { flex: 1; min-width: 0; }
+.icon-btn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--ink-07);
+  background: var(--white);
+  cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .2s, transform .2s var(--ease), border-color .2s, color .2s;
+  color: var(--ink-60);
+  position: relative;
+}
+.icon-btn:active { background: var(--surface-deep); transform: scale(.91); }
+.icon-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.date-pill {
+  height: 44px;
+  padding: 0 1.1rem;
+  border-radius: 22px;
+  border: none;
+  background: var(--surface-deep);
+  color: var(--primary);
+  font-family: 'Rubik', sans-serif;
+  font-size: .85rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .2s, transform .2s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.date-pill:active {
+  background: var(--ink-07);
+  transform: scale(.93);
+}
+
+.icon-btn.bell-on { color: var(--primary); border-color: var(--primary); background: var(--done-bg); }
+.icon-btn.bell-on svg { fill: var(--primary); }
+.bell-dot {
+  position: absolute; top: 8px; right: 9px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--new); border: 2px solid var(--white);
+  display: none;
+}
+.icon-btn.bell-off .bell-dot { display: block; }
+
+.pulse-wrap { display: inline-flex; align-items: center; gap: .45em; }
+.pulse-dot { 
+  width: 8px; height: 8px; border-radius: 50%; background: #22c55e; position: relative; flex-shrink: 0; 
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+.pulse-dot::after {
+  content: ''; position: absolute; inset: -4px;
+  border-radius: 50%; background: rgba(34, 197, 94, 0.35);
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+@keyframes pulse-ring { 0% { transform: scale(1); opacity: .6; } 100% { transform: scale(1.6); opacity: 0; } }
+@keyframes rotate { to { transform: rotate(360deg); } }
+
+.scroll-area {
+  flex: 1; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.75rem 1.5rem calc(6.5rem + var(--safe-bottom)); 
+  position: relative;
+}
+
+.bottom-nav {
+  position: fixed;
+  bottom: calc(1rem + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 2rem);
+  max-width: 480px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 .5rem;
+  background: rgba(255, 255, 255, 0.42); 
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 28px;
+  box-shadow: 0 12px 40px -10px rgba(15, 13, 11, 0.15), 
+              0 1px 1px rgba(255, 255, 255, 0.5) inset;
+  z-index: 9999;
+  transition: transform .6s var(--ease-out), opacity .55s ease;
+  will-change: transform, opacity;
+}
+.bottom-nav.nav-hidden {
+  transform: translate(-50%, 100px) scale(0.92);
+  opacity: 0;
+  pointer-events: none;
+}
+.nav-item {
+  flex: 1;
+  height: 100%;
+  border: none;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  color: var(--ink-60);
+  transition: color .25s var(--ease), transform .2s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-item svg {
+  width: 19px; height: 19px;
+  stroke: currentColor; fill: none; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+  transition: transform .25s var(--ease);
+}
+.nav-item span {
+  font-size: .62rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.nav-item.active { color: var(--primary); }
+.nav-item.active svg { transform: translateY(-1px) scale(1.08); stroke-width: 2.3; }
+
+.loader {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 6rem 0; gap: 1rem; color: var(--ink-30); font-size: .9rem;
+}
+.spinner {
+  width: 26px; height: 26px;
+  border: 2px solid var(--ink-07);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: rotate .7s linear infinite;
+}
+.empty-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 6rem 1rem; text-align: center;
+  color: var(--ink-30); gap: .75rem;
+}
+.empty-icon { font-size: 2.4rem; }
+.empty-text { font-size: .92rem; line-height: 1.6; }
+
+.section-header {
+  display: flex; align-items: baseline;
+  gap: 1rem; margin-bottom: 1.75rem;
+}
+.section-num {
+  font-family: 'Rubik', sans-serif;
+  font-size: .95rem; font-style: italic;
+  font-weight: 300; color: var(--ink-60);
+  flex-shrink: 0;
+}
+.section-title {
+  font-family: 'Rubik', sans-serif;
+  font-size: 2.2rem; font-weight: 300;
+  letter-spacing: -.03em; line-height: .95;
+}
+.section-title em { font-style: italic; color: var(--primary); font-weight: 300; }
+.section-line {
+  display: block; width: 44px; height: 2px;
+  background: var(--accent); border-radius: 999px;
+  margin-top: .6rem;
+}
+.stats-row {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: .6rem; margin-bottom: 2rem;
+}
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--ink-07);
+  border-radius: 22px;
+  padding: 1.1rem .5rem .85rem;
+  text-align: center;
+  transition: transform .45s var(--ease), box-shadow .45s var(--ease);
+}
+.stat-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px -20px rgba(15,13,11,.14); }
+.stat-num {
+  font-family: 'Rubik', sans-serif;
+  font-size: 2.2rem; font-weight: 300;
+  line-height: 1; margin-bottom: .25rem;
+  letter-spacing: -.04em;
+}
+.stat-num.c-accent { color: var(--accent); }
+.stat-num.c-primary { color: var(--primary); }
+.stat-num.c-new { color: var(--new); }
+.stat-lbl {
+  font-size: .6rem; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--ink-60);
+  font-weight: 500;
+}
+.date-group { margin-bottom: 2rem; }
+.date-lbl {
+  font-size: .66rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .14em;
+  color: var(--ink-30); margin-bottom: .75rem;
+  display: flex; align-items: center; gap: .65rem;
+}
+.date-lbl.is-today { color: var(--primary); }
+.date-lbl::after { content: ''; flex: 1; height: 1px; background: var(--ink-07); }
+
+.bcard {
+  background: var(--card);
+  border: 1px solid var(--ink-07);
+  border-radius: 24px;
+  padding: 1.3rem 2.6rem 1.3rem 1.35rem;
+  margin-bottom: .65rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .45s var(--ease), box-shadow .45s var(--ease), border-color .3s;
+  position: relative; overflow: hidden;
+}
+.bcard:hover { transform: translateY(-3px); box-shadow: 0 18px 42px -22px rgba(15,13,11,.18); }
+.bcard:active { transform: scale(.985); }
+.bcard.is-new  { border-color: rgba(217,119,6,.30); }
+.bcard-icon {
+  position: absolute; left: 1.35rem; top: 1.45rem;
+  width: 40px; height: 40px;
+  border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.bcard-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.bcard.is-new  .bcard-icon { background: var(--new-bg);  color: var(--new);  }
+.bcard.is-done .bcard-icon { background: var(--done-bg); color: var(--primary); }
+.bcard-body { padding-left: 3rem; }
+.bcard-top  { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; margin-bottom: .26rem; }
+.bcard-name { font-family: 'Rubik', sans-serif; font-size: 1.1rem; font-weight: 400; }
+.bcard-time { font-family: 'Rubik', sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--primary); flex-shrink: 0; }
+.bcard-meta { display: flex; align-items: center; gap: .6rem; }
+.bcard-phone { font-size: .86rem; color: var(--ink-60); }
+.bcard-badge { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; padding: .2rem .6rem; border-radius: 999px; }
+.bcard-badge.is-new  { background: var(--new-bg);  color: var(--new);  }
+.bcard-badge.is-done { background: var(--done-bg); color: var(--done); }
+.bcard-comment {
+  margin-top: .65rem; padding-top: .6rem;
+  border-top: 1px solid var(--ink-07);
+  font-size: .84rem; color: var(--ink-60);
+  line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.bcard-chevron {
+  position: absolute; right: 1rem; top: 1.55rem;
+  width: 15px; height: 15px;
+  stroke: var(--ink-30); fill: none;
+  stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+.cal-wrap {
+  background: var(--card);
+  border: 1px solid var(--ink-07);
+  border-radius: 26px;
+  padding: 1.4rem;
+  margin-bottom: 1.2rem;
+  transition: box-shadow .45s var(--ease);
+}
+.cal-wrap:hover { box-shadow: 0 18px 42px -22px rgba(15,13,11,.12); }
+.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.cal-month {
+  font-family: 'Rubik', sans-serif;
+  font-size: 1.05rem; font-weight: 300;
+  font-style: italic; color: var(--ink);
+  letter-spacing: -.01em;
+}
+.cal-nav-btn {
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid var(--ink-07);
+  background: transparent; color: var(--ink);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: .9rem; transition: all .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.cal-nav-btn:active { background: var(--primary); color: var(--white); border-color: var(--primary); }
+.cal-wd { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: .4rem; }
+.cal-wd div {
+  text-align: center; font-size: .58rem; font-weight: 700;
+  color: var(--ink-30); text-transform: uppercase; letter-spacing: .08em; padding: .35rem 0;
+}
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+
+.cal-cell {
+  aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+  border-radius: 12px; font-size: .92rem; cursor: pointer;
+  border: 1px solid transparent; position: relative;
+  -webkit-tap-highlight-color: transparent; color: var(--ink);
+  transition: background .15s;
+}
+.cal-cell.empty  { cursor: default; }
+.cal-cell.past   { color: var(--ink-30); cursor: default; }
+.cal-cell.today  { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+
+.cal-cell.has-dot-new::after {
+  content: ''; position: absolute; bottom: 3px;
+  width: 4px; height: 4px; background: var(--new); border-radius: 50%;
+}
+.cal-cell.has-dot-confirmed::after {
+  content: ''; position: absolute; bottom: 3px;
+  width: 4px; height: 4px; background: #22c55e; border-radius: 50%;
+}
+.cal-cell.selected { background: var(--primary); color: var(--white); border-color: var(--primary); }
+.cal-cell.selected::after { background: var(--white) !important; }
+
+.cal-cell:not(.empty):not(.past):not(.selected):active { background: var(--surface-deep); }
+.cal-hint    { text-align: center; padding: 2.5rem 1rem; color: var(--ink-30); font-size: .88rem; font-style: italic; }
+.cal-no-items { text-align: center; padding: 1.5rem; color: var(--ink-30); font-size: .88rem; font-style: italic; }
+
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(15,13,11,.42);
+  opacity: 0; visibility: hidden;
+  transition: opacity .35s var(--ease), visibility .35s var(--ease);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+.modal-backdrop.open { opacity: 1; visibility: visible; }
+
+.modal-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 901;
+  height: 94dvh; max-height: 94dvh;
+  background: var(--surface);
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -20px 60px -20px rgba(15,13,11,.4);
+  display: flex; flex-direction: column;
+  transform: translateY(100%);
+  transition: transform .42s var(--ease);
+  overflow: hidden;
+  touch-action: none;
+}
+.modal-sheet.open { transform: translateY(0); }
+.sched-status { text-align: center; font-size: .85rem; color: var(--ink-60); padding: .75rem 0 .5rem; }
+.sched-status.ok { color: var(--done); }
+.sched-status.err { color: var(--danger); cursor: pointer; text-decoration: underline; }
+.modal-sheet.dragging { transition: none; }
+
+.sheet-grab {
+  flex-shrink: 0;
+  padding: .75rem 1rem .25rem;
+  display: flex; flex-direction: column; align-items: center;
+  cursor: grab;
+  touch-action: none;
+}
+.sheet-grab-bar {
+  width: 42px; height: 5px; border-radius: 999px;
+  background: var(--ink-30);
+}
+.sheet-head {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: .75rem;
+  padding: .35rem 1.25rem .85rem;
+  border-bottom: 1px solid var(--ink-07);
+}
+.sheet-titles { flex: 1; min-width: 0; }
+.sheet-head .topbar-name { font-size: 1.15rem; }
+.sheet-close {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--ink-07); background: var(--white);
+  color: var(--ink-60); cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .2s, transform .2s var(--ease);
+}
+.sheet-close:active { background: var(--surface-deep); transform: scale(.9); }
+.sheet-close svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+.detail-scroll {
+  flex: 1; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1.5rem 1.5rem calc(2.5rem + var(--safe-bottom));
+  touch-action: pan-y;
+}
+.d-tag { margin-bottom: 1.4rem; }
+.d-name {
+  font-family: 'Rubik', sans-serif;
+  font-size: clamp(2.2rem, 9vw, 3.2rem);
+  font-weight: 300; letter-spacing: -.04em;
+  line-height: .92; margin-bottom: .5rem;
+}
+.d-name em { font-style: italic; color: var(--primary); font-weight: 300; }
+.d-datetime {
+  font-size: .95rem; font-weight: 300;
+  color: var(--ink-60); margin-bottom: 2rem;
+}
+.d-line {
+  display: block; width: 44px; height: 2px;
+  background: var(--accent); border-radius: 999px;
+  margin: .8rem 0 1.8rem;
+}
+.d-section { margin-bottom: 1.4rem; }
+.d-section-label {
+  font-size: .6rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .18em;
+  color: var(--ink-60); margin-bottom: .65rem;
+  font-family: 'Jost', sans-serif;
+}
+.d-card {
+  background: var(--card);
+  border: 1px solid var(--ink-07);
+  border-radius: 24px; overflow: hidden;
+  transition: box-shadow .45s var(--ease);
+}
+.d-card:hover { box-shadow: 0 18px 42px -22px rgba(15,13,11,.12); }
+.d-row {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 1.1rem 1.3rem;
+  border-bottom: 1px solid var(--ink-07);
+}
+.d-row:last-child { border-bottom: none; }
+.d-icon {
+  width: 42px; height: 42px;
+  background: var(--primary-pale);
+  border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.d-icon svg { width: 18px; height: 18px; stroke: var(--primary); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.d-key  { font-size: .7rem; color: var(--ink-60); margin-bottom: .12rem; letter-spacing: .03em; }
+.d-val  { font-size: .98rem; font-weight: 400; color: var(--ink); }
+.d-val a { color: var(--ink); text-decoration: none; }
+.d-val.muted { font-weight: 300; color: var(--ink-60); font-size: .9rem; line-height: 1.55; }
+
+.contact-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: .6rem; margin-bottom: .9rem;
+}
+.contact-grid .btn-full { font-size: .68rem; padding: 1rem 1em; letter-spacing: .1em; }
+
+.d-actions { display: flex; flex-direction: column; gap: .6rem; margin-top: 1.4rem; }
+.d-divider  { height: 1px; background: var(--ink-07); margin: .4rem 0; }
+.btn-full {
+  width: 100%; padding: 1.2rem 2em;
+  border-radius: 999px; border: none;
+  font-family: 'Jost', sans-serif;
+  font-size: .74rem; font-weight: 600;
+  letter-spacing: .14em; text-transform: uppercase;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: .55rem;
+  transition: background .45s var(--ease), box-shadow .45s var(--ease), color .2s, transform .2s var(--ease);
+  -webkit-tap-highlight-color: transparent;
+  position: relative; overflow: hidden;
+  text-decoration: none;
+}
+.btn-full svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.btn-full:active { transform: scale(.97); }
+.btn-full:disabled { opacity: .45; cursor: not-allowed; }
+.btn-call {
+  background: var(--primary); color: var(--white);
+  box-shadow: 0 12px 30px -10px rgba(42,82,84,.42);
+  margin-bottom: .6rem;
+}
+
+.btn-wa   { background: var(--wa-bg);   color: #0f9d58; border: 1px solid rgba(37,211,102,.35); }
+.btn-imsg { background: var(--imsg-bg); color: var(--imsg); border: 1px solid rgba(10,124,255,.30); }
+.btn-tg   { background: var(--surface-deep); color: var(--primary); border: 1px solid var(--ink-07); }
+.btn-confirm {
+  background: var(--surface-deep); color: var(--primary);
+  border: 1px solid var(--primary);
+}
+.btn-calendar {
+  background: var(--primary-pale); color: var(--primary);
+  border: 1px solid var(--primary-mid);
+}
+.btn-undo {
+  background: var(--surface-deep); color: var(--ink-60);
+  border: 1px solid var(--ink-07);
+}
+.btn-delete {
+  background: transparent; color: var(--danger);
+  border: 1px solid rgba(185,28,28,.18);
+}
+
+.reveal {
+  opacity: 0; transform: translateY(28px);
+  transition: opacity .85s var(--ease), transform .85s var(--ease);
+}
+.reveal.visible { opacity: 1; transform: none; }
+
+.sched-day-card {
+  background: var(--card);
+  border: 1px solid var(--ink-07);
+  border-radius: 20px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+.sched-day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--ink-07);
+  padding-bottom: .6rem;
+}
+.sched-day-title {
+  font-family: 'Rubik', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+.sched-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: .5rem;
+}
+.sched-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: .6rem;
+  border: 1px solid var(--ink-07);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: .85rem;
+  font-weight: 500;
+  transition: all .2s;
+  user-select: none;
+}
+.sched-label input { display: none; }
+.sched-label:has(input:checked) {
+  background: var(--primary);
+  color: var(--white);
+  border-color: var(--primary);
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute;
+  cursor: pointer; inset: 0;
+  background-color: var(--ink-30);
+  transition: .3s var(--ease);
+  border-radius: 24px;
+}
+.slider:before {
+  position: absolute; content: "";
+  height: 18px; width: 18px;
+  left: 3px; bottom: 3px;
+  background-color: white;
+  transition: .3s var(--ease);
+  border-radius: 50%;
+}
+input:checked + .slider { background-color: var(--primary); }
+input:checked + .slider:before { transform: translateX(22px); }
+</style>
+</head>
+<body>
+
+<div class="screen active" id="screenLogin">
+  <div class="login-wrap">
+    <h2 class="login-title">Вход в <em>админку</em></h2>
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <input type="email" id="loginEmail" placeholder="Email" required autocomplete="email"/>
+      <input type="password" id="loginPass" placeholder="Пароль" required autocomplete="current-password"/>
+      <button type="submit" class="btn-full btn-call" id="loginBtn">Войти</button>
+      <p id="loginError" class="login-error"></p>
+    </form>
+  </div>
+</div>
+
+<div class="screen" id="screenList">
+  <div class="topbar">
+    <div class="topbar-row">
+      <div class="topbar-titles">
+        <div class="topbar-name">Админ <em>Панель</em></div>
+        <div class="topbar-sub" id="lastUpdated">
+          <span class="pulse-wrap"><span class="pulse-dot"></span>Загрузка...</span>
+        </div>
+      </div>
+      
+      <button class="date-pill" onclick="openNativeCalendar()" id="topbarDatePill">
+        --.--
+      </button>
+
+      <button class="icon-btn bell-off" id="bellBtn" onclick="toggleNotifications()" aria-label="Push-уведомления" title="Push-уведомления">
+        <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="bell-dot"></span>
+      </button>
+      <button class="icon-btn" onclick="doLogout()" aria-label="Выйти" title="Выйти">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+  
+  <div class="scroll-area" id="listContent">
+    <div class="loader"><div class="spinner"></div>Загружаем записи...</div>
+  </div>
+
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="nav-item active" id="btnNavA" onclick="switchTab('upcoming')">
+      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span>Записи</span>
+    </button>
+    <button class="nav-item" id="btnNavB" onclick="switchTab('calendar')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span>Календарь</span>
+    </button>
+    <button class="nav-item" id="btnNavC" onclick="switchTab('schedule')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>График</span>
+    </button>
+  </nav>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeDetail()"></div>
+<div class="modal-sheet" id="modalSheet">
+  <div class="sheet-grab" id="sheetGrab">
+    <div class="sheet-grab-bar"></div>
+  </div>
+  <div class="sheet-head">
+    <div class="sheet-titles">
+      <div class="topbar-name" id="dTopName">Запись</div>
+      <div class="topbar-sub"  id="dTopSub"></div>
+    </div>
+    <button class="sheet-close" onclick="closeDetail()" aria-label="Закрыть">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="detail-scroll" id="detailContent"></div>
+</div>
+
+<script>
+(function () {
+  /* Бэкенд: Yandex Cloud Function + YDB (данные в РФ, 152-ФЗ).
+     JWT передаётся в своём заголовке X-Yana-Token — Authorization занят платформой. */
+  const API_URL = 'https://functions.yandexcloud.net/d4e69j856h3ot6emf2m7';
+
+  function getToken() { return localStorage.getItem('yp_admin_token') || ''; }
+
+  async function api(action, payload) {
+    const r = await fetch(`${API_URL}?action=${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Yana-Token': getToken() },
+      body: JSON.stringify(payload || {})
+    });
+    if (r.status === 401) {
+      localStorage.removeItem('yp_admin_token');
+      showLogin(true);
+      throw new Error('unauthorized');
+    }
+    if (!r.ok) throw new Error('api_' + r.status);
+    return r.json();
+  }
+
+  let allBookings = [];
+  let weeklySchedule = null;
+  let currentTab  = 'upcoming';
+  let calMonth    = new Date().getMonth();
+  let calYear     = new Date().getFullYear();
+  let calSelected = null;
+
+  const MO_RU  = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const MO_SH  = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+  const WD_SH  = ['вс','пн','вт','ср','чт','пт','сб'];
+  const WD_FUL = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+  const DAY_NAMES = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
+  const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+  const TIME_SLOTS = ["08:00", "09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"];
+
+  function pad(n) { return String(n).padStart(2,'0'); }
+  function todayStr() { const t=new Date(); return `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}`; }
+  function tomorrowStr() { const d=new Date(); d.setDate(d.getDate()+1); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+  function dObj(ds) { return new Date(ds+'T00:00:00'); }
+
+  function labelFor(ds) {
+    const d    = dObj(ds);
+    const base = `${d.getDate()} ${MO_SH[d.getMonth()]} (${WD_SH[d.getDay()]})`;
+    if (ds === todayStr())    return { text:'Сегодня · '+base, isToday:true  };
+    if (ds === tomorrowStr()) return { text:'Завтра · '+base,  isToday:false };
+    return { text:base, isToday:false };
+  }
+  function fullDate(ds) {
+    const d = dObj(ds);
+    return `${d.getDate()} ${MO_SH[d.getMonth()]} ${d.getFullYear()}, ${WD_FUL[d.getDay()]}`;
+  }
+
+  // Контакт клиента: телефон РФ, ник Telegram или что-то непонятное (старые записи).
+  function contactInfo(raw) {
+    const str = String(raw ?? '').trim();
+    if (/^[\d\s()+\-.]+$/.test(str)) {
+      let d = str.replace(/\D/g, '');
+      if (d.length === 11 && (d[0] === '7' || d[0] === '8')) d = d.slice(1);
+      if (d.length === 10) {
+        return { type: 'phone', e164: '+7' + d,
+          pretty: `+7 (${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6,8)}-${d.slice(8)}` };
+      }
+    }
+    const nick = str.replace(/^(?:https?:\/\/)?(?:www\.)?t\.me\//i, '').replace(/^@/, '').replace(/\/+$/, '');
+    if (/^[A-Za-z0-9_]{5,32}$/.test(nick) && /[A-Za-z]/.test(nick)) {
+      return { type: 'telegram', username: nick, pretty: '@' + nick };
+    }
+    return { type: 'unknown', pretty: str };
+  }
+  const CONTACT_LABEL = { phone: 'Телефон', telegram: 'Telegram', unknown: 'Контакт' };
+
+  window.copyContact = function(btn) {
+    const text = btn.dataset.copy || '';
+    const done = () => { const t = btn.lastChild; const old = t.textContent; t.textContent = 'Скопировано'; setTimeout(() => t.textContent = old, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => {});
+    else { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch(e) {} ta.remove(); }
+  };
+
+  window.openNativeCalendar = function() {
+    window.location.href = "calshow://";
+  };
+
+  function updateTopbarDate() {
+    const n = new Date();
+    const day = pad(n.getDate());
+    const month = pad(n.getMonth() + 1);
+    const pill = document.getElementById('topbarDatePill');
+    if (pill) {
+      pill.textContent = `${day}.${month}`;
+    }
+  }
+
+  /* ═══ ИЗМЕНЕНО: при ошибке загрузки — точный код в консоль
+     + понятный экран вместо вечного спиннера + кнопка «Повторить» ═══ */
+  async function loadBookings() {
+    try {
+      try {
+        const { schedule } = await api('schedule_get');
+        if (schedule) weeklySchedule = schedule;
+      } catch (schedErr) {
+        console.warn("Ошибка загрузки графика, применен дефолтный шаблон:", schedErr);
+      }
+
+      if (!weeklySchedule) {
+        weeklySchedule = {
+          "1": ["09:00","10:00","11:00","12:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"],
+          "2": ["08:00","09:00","10:00","11:00","12:00","18:00","19:00"],
+          "3": ["08:00","09:00","10:00","11:00","12:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"],
+          "4": ["14:00","15:00","16:00","17:00","18:00","19:00","20:00"],
+          "5": ["09:00","10:00","11:00","12:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"],
+          "6": ["10:00","11:00","12:00","14:00","15:00","16:00"],
+          "0": []
+        };
+      }
+
+      const { bookings } = await api('bookings');
+      const prevIds = knownIds;
+      knownIds = new Set(bookings.map(b => b.slot_id));
+      if (prevIds !== null) {
+        bookings.filter(b => !prevIds.has(b.slot_id)).forEach(b => {
+          showLocalNotif('Новая заявка 📅', `${b.name || 'Клиент'} · ${b.date || ''} ${b.time || ''}`);
+        });
+      }
+      allBookings = bookings
+        .filter(d => d.date)
+        .map(d => ({ id: d.slot_id, ...d, dateStr: String(d.date).substring(0, 10) }));
+      allBookings.sort((a,b)=>((a.dateStr||'')+(a.time||'')).localeCompare((b.dateStr||'')+(b.time||'')));
+      updateChips();
+      renderTab();
+      updateTopbarDate();
+      
+      const n = new Date();
+      const dNum = n.getDate();
+      const mName = MO_SH[n.getMonth()];
+      document.getElementById('lastUpdated').innerHTML =
+        `<span class="pulse-wrap"><span class="pulse-dot"></span>${dNum} ${mName} · ${pad(n.getHours())}:${pad(n.getMinutes())}</span>`;
+    } catch(e) {
+      console.error('loadBookings error:', e.code, e.message);
+      document.getElementById('lastUpdated').innerHTML = `<span style="color:var(--danger)">Не удалось обновить</span>`;
+      document.getElementById('listContent').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-text">Ошибка загрузки данных${e.code ? ' ('+e.code+')' : ''}</div>
+          <button class="btn-full btn-call" style="max-width:220px;margin-top:1rem" onclick="window.__retryLoadBookings()">Повторить</button>
+        </div>`;
+    }
+  }
+  window.__retryLoadBookings = loadBookings;
+
+  function updateChips() {
+    const today    = todayStr();
+    const upcoming = allBookings.filter(b => b.dateStr >= today);
+    const newCount = upcoming.filter(b => b.status === 'new').length;
+
+    if (navigator.setAppBadge) {
+      if (newCount > 0) {
+        navigator.setAppBadge(newCount).catch(e => console.warn('Badge err:', e));
+      } else {
+        navigator.clearAppBadge().catch(e => console.warn('Badge clear err:', e));
+      }
+    }
+  }
+
+  window.switchTab = function(tab) {
+    currentTab = tab;
+    
+    document.getElementById('btnNavA').classList.toggle('active', tab === 'upcoming');
+    document.getElementById('btnNavB').classList.toggle('active', tab === 'calendar');
+    document.getElementById('btnNavC').classList.toggle('active', tab === 'schedule');
+    
+    document.getElementById('listContent').scrollTop = 0;
+    window.scrollTo(0, 0);
+    lastScrollTop = 0;
+    document.getElementById('bottomNav').classList.remove('nav-hidden');
+    
+    renderTab();
+  };
+  
+  function renderTab() { 
+    if (currentTab === 'upcoming') renderUpcoming();
+    else if (currentTab === 'calendar') renderCalendar();
+    else if (currentTab === 'schedule') renderScheduleManager();
+  }
+
+  function setContent(html) {
+    const el  = document.getElementById('listContent');
+    el.innerHTML = '';
+    const holder = document.createElement('div');
+    holder.innerHTML = html;
+    while (holder.firstChild) el.appendChild(holder.firstChild);
+    return el;
+  }
+
+  function renderUpcoming() {
+    const today    = todayStr();
+    const upcoming = allBookings.filter(b => b.dateStr >= today);
+    if (!upcoming.length) {
+      const el = setContent(`
+        <div class="empty-state">
+          <div class="empty-icon" style="color: var(--primary); margin-bottom: 0.5rem;">
+            <svg viewBox="0 0 24 24" style="width: 44px; height: 44px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; display: inline-block;">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+          </div>
+          <div class="empty-text">Нет предстоящих записей</div>
+        </div>
+      `);
+      return;
+    }
+    const newC  = upcoming.filter(b => b.status==='new').length;
+    const confC = upcoming.filter(b => b.status==='confirmed').length;
+    let html = `
+      <div class="section-header">
+        <span class="section-num">01 —</span>
+        <div><h2 class="section-title">Ближайшие <em>записи</em></h2><span class="section-line"></span></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card reveal"><div class="stat-num">${upcoming.length}</div><div class="stat-lbl">Записей</div></div>
+        <div class="stat-card reveal"><div class="stat-num c-new">${newC}</div><div class="stat-lbl">Новых</div></div>
+        <div class="stat-card reveal"><div class="stat-num c-primary">${confC}</div><div class="stat-lbl">Готово</div></div>
+      </div>`;
+    const byDate = {};
+    upcoming.forEach(b => { if (!byDate[b.dateStr]) byDate[b.dateStr]=[]; byDate[b.dateStr].push(b); });
+    Object.keys(byDate).sort().forEach(ds => {
+      const { text, isToday } = labelFor(ds);
+      html += `<div class="date-group reveal"><div class="date-lbl ${isToday?'is-today':''}">${text}</div>${byDate[ds].map(cardHTML).join('')}</div>`;
+    });
+    const el = setContent(html);
+    animateReveal(el);
+  }
+
+  function renderCalendar() {
+    const byDate = {};
+    allBookings.forEach(b => { if (!byDate[b.dateStr]) byDate[b.dateStr]=[]; byDate[b.dateStr].push(b); });
+    const first = new Date(calYear, calMonth, 1);
+    const last  = new Date(calYear, calMonth+1, 0);
+    const pad0  = (first.getDay()+6)%7;
+    const today = todayStr();
+    let cells = '';
+    for (let i=0; i<pad0; i++) cells += `<div class="cal-cell empty"></div>`;
+    for (let d=1; d<=last.getDate(); d++) {
+      const ds  = `${calYear}-${pad(calMonth+1)}-${pad(d)}`;
+      const dayBookings = byDate[ds] || [];
+      const has = dayBookings.length > 0;
+      const isp = ds < today;
+      const idt = ds === today;
+      const isl = ds === calSelected;
+      let c = 'cal-cell';
+      if (isp) c += ' past';
+      if (idt) c += ' today';
+      if (has) {
+        const hasNew = dayBookings.some(b => b.status !== 'confirmed');
+        c += hasNew ? ' has-dot-new' : ' has-dot-confirmed';
+      }
+      if (isl) c += ' selected';
+      cells += `<div class="${c}" onclick="calPick('${ds}')">${d}</div>`;
+    }
+    let daySection = calSelected
+      ? (() => {
+          const list = (byDate[calSelected]||[]).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+          if (!list.length) return `<div class="cal-no-items">Нет записей в этот день</div>`;
+          const { text, isToday } = labelFor(calSelected);
+          return `<div class="date-group"><div class="date-lbl ${isToday?'is-today':''}">${text}</div>${list.map(cardHTML).join('')}</div>`;
+        })()
+      : `<div class="cal-hint">Выберите дату — увидите записи</div>`;
+    const html = `
+      <div class="section-header"><span class="section-num">02 —</span><h2>Все <em>даты</em></h2><span class="section-line"></span></div>
+      <div class="cal-wrap reveal">
+        <div class="cal-nav">
+          <button class="cal-nav-btn" onclick="calMove(-1)">←</button>
+          <span class="cal-month">${MO_RU[calMonth]} ${calYear}</span>
+          <button class="cal-nav-btn" onclick="calMove(1)">→</button>
+        </div>
+        <div class="cal-wd"><div>Пн</div><div>Вт</div><div>Ср</div><div>Чт</div><div>Пт</div><div>Сб</div><div style="color:var(--primary)">Вс</div></div>
+        <div class="cal-grid">${cells}</div>
+      </div>${daySection}`;
+    const el = setContent(html);
+    animateReveal(el);
+  }
+
+  function renderScheduleManager() {
+    let html = `
+      <div class="section-header">
+        <span class="section-num">03 —</span>
+        <div><h2 class="section-title">Настройка <em>графика</em></h2><span class="section-line"></span></div>
+      </div>
+      <p style="font-size:.9rem; color:var(--ink-60); margin-bottom:1.5rem; line-height:1.5;">Укажите рабочие дни и время старта тренировок (сессия длится 50 минут, между ними предусмотрен 10-минутный перерыв).</p>
+    `;
+
+    DAY_ORDER.forEach(dayIdx => {
+      const activeSlots = weeklySchedule[String(dayIdx)] || [];
+      const isWorking = activeSlots.length > 0;
+      const dayName = DAY_NAMES[dayIdx];
+
+      html += `
+        <div class="sched-day-card reveal">
+          <div class="sched-day-header">
+            <span class="sched-day-title">${dayName}</span>
+            <label class="switch">
+              <input type="checkbox" id="toggle-${dayIdx}" ${isWorking ? 'checked' : ''} onchange="toggleDay(${dayIdx})">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="sched-grid" id="grid-${dayIdx}" style="display: ${isWorking ? 'grid' : 'none'}">
+            ${TIME_SLOTS.map(time => {
+              const checked = activeSlots.includes(time) ? 'checked' : '';
+              return `
+                <label class="sched-label">
+                  <input type="checkbox" name="time-${dayIdx}" value="${time}" ${checked} onchange="queueSchedSave()">
+                  ${time}
+                </label>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+      <div class="sched-status" id="schedStatus">Изменения сохраняются автоматически</div>
+    `;
+
+    const el = setContent(html);
+    animateReveal(el);
+  }
+
+  window.toggleDay = function(dayIdx) {
+    const isChecked = document.getElementById(`toggle-${dayIdx}`).checked;
+    document.getElementById(`grid-${dayIdx}`).style.display = isChecked ? 'grid' : 'none';
+    queueSchedSave();
+  };
+
+  // Автосохранение графика: изменения уходят на сервер через секунду после последнего нажатия.
+  let schedTimer = null, schedSaving = false, schedAgain = false;
+  function schedStatus(text, cls) {
+    const el = document.getElementById('schedStatus');
+    if (el) { el.textContent = text; el.className = 'sched-status' + (cls ? ' ' + cls : ''); }
+  }
+  window.queueSchedSave = function() {
+    clearTimeout(schedTimer);
+    schedStatus('Сохраняем…');
+    schedTimer = setTimeout(saveWeeklySchedule, 800);
+  };
+
+  window.saveWeeklySchedule = async function() {
+    if (schedSaving) { schedAgain = true; return; }
+    schedSaving = true;
+
+    const newSchedule = {};
+    DAY_ORDER.forEach(dayIdx => {
+      const toggle = document.getElementById(`toggle-${dayIdx}`);
+      if (!toggle || !toggle.checked) {
+        newSchedule[String(dayIdx)] = toggle ? [] : (weeklySchedule[String(dayIdx)] || []);
+      } else {
+        const checkedCheckboxes = document.querySelectorAll(`input[name="time-${dayIdx}"]:checked`);
+        newSchedule[String(dayIdx)] = Array.from(checkedCheckboxes).map(cb => cb.value).sort();
+      }
+    });
+
+    try {
+      await api('schedule_set', { schedule: newSchedule });
+      weeklySchedule = newSchedule;
+      schedStatus('✓ Сохранено, сайт записи обновлён', 'ok');
+    } catch (e) {
+      console.error(e);
+      schedStatus('Не удалось сохранить — нажмите, чтобы повторить', 'err');
+      const el = document.getElementById('schedStatus');
+      if (el) el.onclick = () => { el.onclick = null; queueSchedSave(); };
+    } finally {
+      schedSaving = false;
+      if (schedAgain) { schedAgain = false; saveWeeklySchedule(); }
+    }
+  };
+
+  window.calMove = function(dir) {
+    calMonth += dir;
+    if (calMonth<0)  { calMonth=11; calYear--; }
+    if (calMonth>11) { calMonth=0;  calYear++; }
+    calSelected = null;
+    renderCalendar();
+  };
+  window.calPick = function(ds) { calSelected=ds; renderCalendar(); };
+
+  function cardHTML(b) {
+    const isNew = b.status !== 'confirmed';
+    const cls   = isNew ? 'is-new' : 'is-done';
+    const badge = isNew ? 'Новая'  : 'Готово';
+    const iconPath = isNew
+      ? `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`
+      : `<polyline points="20 6 9 17 4 12"/>`;
+    const cmt = b.comment && b.comment!=='—' ? `<div class="bcard-comment">${esc(b.comment)}</div>` : '';
+    return `<div class="bcard ${cls}" onclick="openDetail('${jsId(b.id)}')">
+      <div class="bcard-icon"><svg viewBox="0 0 24 24">${iconPath}</svg></div>
+      <div class="bcard-body">
+        <div class="bcard-top"><span class="bcard-name">${esc(b.name||'Без имени')}</span><span class="bcard-time">${esc(b.time||'--:--')}</span></div>
+        <div class="bcard-meta"><span class="bcard-phone">${esc(b.phone ? contactInfo(b.phone).pretty : '—')}</span><span class="bcard-badge ${cls}">${badge}</span></div>
+        ${cmt}
+      </div>
+      <svg class="bcard-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>`;
+  }
+
+  window.openDetail = function(id) {
+    const b = allBookings.find(x=>x.id===id);
+    if (!b) return;
+    renderDetail(b);
+    openModal();
+  };
+
+  window.addToCalendar = function(id) {
+    const b = allBookings.find(x => x.id === id);
+    if (!b) return;
+
+    const timeStr = (b.time && b.time.includes(':')) ? b.time : '09:00';
+    const startDate = new Date(`${b.dateStr}T${timeStr}:00`);
+    
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+
+    const fmt = d => {
+      const pad = n => n < 10 ? '0' + n : n;
+      return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + 'T' +
+             pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + 'Z';
+    };
+
+    const ci = contactInfo(b.phone);
+    const desc = `${CONTACT_LABEL[ci.type]}: ${ci.pretty || '—'}\\nКомментарий: ${b.comment && b.comment !== '—' ? b.comment : 'Нет'}`;
+
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//YanaAdmin//Booking//RU',
+      'BEGIN:VEVENT',
+      `UID:${b.id}@yana-app`,
+      `DTSTAMP:${fmt(new Date())}`,
+      `DTSTART:${fmt(startDate)}`,
+      `DTEND:${fmt(endDate)}`,
+      `SUMMARY:Запись: ${b.name || 'Без имени'}`,
+      `DESCRIPTION:${desc}`,
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.setAttribute('download', `zapis_${b.dateStr}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const jsId = (v) => esc(String(v ?? '').replace(/[\\'\n\r<>]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')));
+
+  function renderDetail(b) {
+    const isNew = b.status !== 'confirmed';
+    const parts = (b.name||'Без имени').trim().split(' ');
+    document.getElementById('dTopName').innerHTML = parts.length > 1 ? `${esc(parts[0])} <em>${esc(parts.slice(1).join(' '))}</em>` : esc(b.name||'Запись');
+    document.getElementById('dTopSub').textContent = `${b.dateStr?fullDate(b.dateStr):''} · ${esc(b.time||'--:--')}`;
+    const first = parts[0];
+    const rest  = parts.slice(1).join(' ');
+    const commentRow = b.comment && b.comment!=='—' ? `
+      <div class="d-row">
+        <div class="d-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+        <div><div class="d-key">Комментарий</div><div class="d-val muted">${esc(b.comment)}</div></div>
+      </div>` : '';
+
+    const ci = contactInfo(b.phone);
+    const tel      = ci.type === 'phone' ? `tel:${ci.e164}` : '';
+    const waLink   = ci.type === 'phone' ? `whatsapp://send?phone=${ci.e164.slice(1)}` : '';
+    const imsgLink = ci.type === 'phone' ? `sms:${ci.e164}` : '';
+    const tgLink   = ci.type === 'phone' ? `https://t.me/${ci.e164}` : ci.type === 'telegram' ? `https://t.me/${ci.username}` : '';
+
+    const actionBtn = isNew
+      ? `<button class="btn-full btn-confirm" onclick="doStatus('${jsId(b.id)}','confirmed')"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Подтвердить запись</button>`
+      : `<button class="btn-full btn-calendar" onclick="addToCalendar('${jsId(b.id)}')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>В календарь iOS</button>
+         <button class="btn-full btn-undo" onclick="doStatus('${jsId(b.id)}','new')"><svg viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>Вернуть в новые</button>`;
+
+    const tgButton = `
+      <a href="${esc(tgLink)}" target="_blank" rel="noopener" class="btn-full btn-tg"><svg viewBox="0 0 24 24" style="fill:currentColor; stroke:none; width:16px; height:16px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>Telegram</a>`;
+    const contactButtons = ci.type === 'phone' ? `
+      <a href="${esc(tel)}" class="btn-full btn-call"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.07h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Позвонить</a>
+      <div class="contact-grid">
+        <a href="${esc(waLink)}" class="btn-full btn-wa"><svg viewBox="0 0 24 24" style="stroke:none; fill:currentColor; width:18px; height:18px;"><path d="M12.04 2c-5.5 0-9.96 4.46-9.96 9.96 0 1.76.46 3.45 1.33 4.95L2 22l5.25-1.38c1.45.79 3.08 1.21 4.79 1.21 5.5 0 9.96-4.46 9.96-9.96S17.54 2 12.04 2zm5.8 14.06c-.24.68-1.4 1.3-1.94 1.38-.5.07-1.12.1-1.81-.11-.42-.13-.95-.31-1.64-.6-2.88-1.24-4.76-4.14-4.9-4.33-.14-.19-1.17-1.56-1.17-2.97 0-1.41.74-2.11 1-2.4.26-.29.57-.36.76-.36.19 0 .38 0 .55.01.18.01.41-.07.65.49.24.57.81 1.98.88 2.12.07.14.12.31.02.5-.09.19-.14.31-.28.47-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.69-.81.88-1.09.19-.28.37-.23.62-.14.25.09 1.6.76 1.87.9.28.14.46.21.53.32.07.12.07.66-.17 1.34z"/></svg>WhatsApp</a>
+        <a href="${esc(imsgLink)}" class="btn-full btn-imsg"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg>iMessage</a>
+      </div>
+`+tgButton
+      : ci.type === 'telegram' ? tgButton
+      : `<button type="button" class="btn-full btn-tg" data-copy="${esc(ci.pretty)}" onclick="copyContact(this)"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Скопировать</span></button>`;
+
+    document.getElementById('detailContent').innerHTML = `
+      <div class="d-tag reveal"><span class="tag ${isNew?'new-tag':'done-tag'}">${isNew ? '⏳ Ожидает подтверждения' : '✓ Подтверждена'}</span></div>
+      <div class="d-name reveal">${esc(first)}${rest?` <em>${esc(rest)}</em>`:''}</div>
+      <span class="d-line reveal"></span>
+      <div class="d-datetime reveal">${b.dateStr?fullDate(b.dateStr):'—'} · ${esc(b.time||'--:--')}</div>
+      <div class="d-section reveal"><div class="d-section-label">Клиент</div><div class="d-card">
+        <div class="d-row"><div class="d-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div><div class="d-key">Имя</div><div class="d-val">${esc(b.name||'—')}</div></div></div>
+        <div class="d-row"><div class="d-icon"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.07h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div><div><div class="d-key">${CONTACT_LABEL[ci.type]}</div><div class="d-val">${tel ? `<a href="${esc(tel)}">${esc(ci.pretty)}</a>` : tgLink ? `<a href="${esc(tgLink)}" target="_blank" rel="noopener">${esc(ci.pretty)}</a>` : esc(ci.pretty || '—')}</div></div></div>
+        ${commentRow}
+      </div></div>
+      <div class="d-section reveal"><div class="d-section-label">Связаться</div>${contactButtons}</div>
+      <div class="d-section reveal"><div class="d-section-label">Запись</div><div class="d-card">
+        <div class="d-row"><div class="d-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div><div class="d-key">Дата</div><div class="d-val">${b.dateStr?fullDate(b.dateStr):'—'}</div></div></div>
+        <div class="d-row"><div class="d-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div><div class="d-key">Время</div><div class="d-val">${esc(b.time||'—')}</div></div></div>
+      </div></div>
+      <div class="d-actions reveal">${actionBtn}
+        <div class="d-divider"></div>
+        <button class="btn-full btn-delete" onclick="doDelete('${jsId(b.id)}')"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Удалить запись</button>
+      </div>`;
+    animateReveal(document.getElementById('detailContent'));
+  }
+
+  function animateReveal(root) {
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach((e,i) => {
+        if (e.isIntersecting) {
+          setTimeout(() => e.target.classList.add('visible'), i * 60);
+          obs.unobserve(e.target);
+        }
+      });
+    }, { root: root, threshold: .05 });
+    root.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+  }
+
+  window.doStatus = async function(id, status) {
+    toggleActions(true);
+    try {
+      await api('status', { slot_id: id, status });
+      await loadBookings();
+      const updated = allBookings.find(x=>x.id===id);
+      if (updated) renderDetail(updated);
+    } catch(e) { console.error(e); alert('Ошибка. Попробуйте ещё раз.'); }
+    finally { toggleActions(false); }
+  };
+
+  window.doDelete = async function(id) {
+    const b = allBookings.find(x => x.id === id);
+    if (!confirm('Удалить запись навсегда?')) return;
+    toggleActions(true);
+    try {
+      await api('delete', { slot_id: id });
+      await loadBookings();
+      closeDetail();
+    } catch(e) { console.error(e); alert('Ошибка удаления.'); toggleActions(false); }
+  };
+
+  function toggleActions(on) {
+    document.querySelectorAll('#modalSheet .btn-full').forEach(b => { if (b.tagName === 'BUTTON') b.disabled = on; });
+  }
+
+  const sheet    = document.getElementById('modalSheet');
+  const backdrop = document.getElementById('modalBackdrop');
+  const grab     = document.getElementById('sheetGrab');
+  const dscroll  = document.getElementById('detailContent');
+
+  function openModal() {
+    backdrop.classList.add('open');
+    sheet.style.transform = '';
+    requestAnimationFrame(() => sheet.classList.add('open'));
+    document.body.style.overflow = 'hidden';
+    document.getElementById('bottomNav').classList.add('nav-hidden');
+  }
+  window.closeDetail = function() {
+    sheet.classList.remove('open');
+    sheet.style.transform = '';
+    backdrop.classList.remove('open');
+    document.body.style.overflow = '';
+    document.getElementById('bottomNav').classList.remove('nav-hidden');
+  };
+
+  let dragStartY = null, dragging = false, fromScrollTop = false;
+
+  function dragStart(e, allowFromScroll) {
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    fromScrollTop = allowFromScroll ? (dscroll.scrollTop <= 0) : true;
+    if (allowFromScroll && !fromScrollTop) return;
+    dragStartY = y; dragging = true;
+    sheet.classList.add('dragging');
+  }
+  function dragMove(e) {
+    if (!dragging || dragStartY === null) return;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    const dy = y - dragStartY;
+    if (dy <= 0) { sheet.style.transform = ''; return; }
+    if (fromScrollTop && e.cancelable) e.preventDefault();
+    sheet.style.transform = `translateY(${dy}px)`;
+  }
+  function dragEnd() {
+    if (!dragging) return;
+    dragging = false;
+    sheet.classList.remove('dragging');
+    const m = /translateY\(([\d.]+)px\)/.exec(sheet.style.transform);
+    const dist = m ? parseFloat(m[1]) : 0;
+    if (dist > 130) { closeDetail(); }
+    else { sheet.style.transform = ''; }
+    dragStartY = null;
+  }
+
+  grab.addEventListener('touchstart', e => dragStart(e, false), { passive: true });
+  grab.addEventListener('touchmove',  dragMove, { passive: false });
+  grab.addEventListener('touchend',   dragEnd);
+  dscroll.addEventListener('touchstart', e => dragStart(e, true), { passive: true });
+  dscroll.addEventListener('touchmove',  dragMove, { passive: false });
+  dscroll.addEventListener('touchend',   dragEnd);
+
+  const VAPID_KEY = 'BFjAJdb9Dh0DFqzOg7DOMmk_R66uV7cDvCwsavNj9xqQSo1dBn8GoGEVJPkzPJA6TzoopiPfggfylUG1EvfYMA8';
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
+  const bellBtn = document.getElementById('bellBtn');
+  let swReg = null;
+
+  async function registerSW() {
+    if (!('serviceWorker' in navigator) || swReg) return swReg;
+    try { swReg = await navigator.serviceWorker.register('sw.js'); }
+    catch(e) { console.warn('SW не зарегистрирован', e); }
+    return swReg;
+  }
+
+  async function setupPush() {
+    if (!VAPID_KEY) return;
+    try {
+      await registerSW();
+      if (!swReg || !swReg.pushManager) return;
+      const subscription = await swReg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
+      });
+      await api('subscribe', { subscription });
+    } catch(e) { console.warn('Push subscribe error', e); }
+  }
+
+  function showLocalNotif(title, body) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (swReg && swReg.active) {
+      swReg.active.postMessage({ type: 'notify', title, body });
+    } else if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'notify', title, body });
+    } else {
+      try { new Notification(title, { body }); } catch(e) {}
+    }
+  }
+
+  function refreshBell() {
+    if (!('Notification' in window)) { bellBtn.style.display = 'none'; return; }
+    if (Notification.permission === 'granted') {
+      bellBtn.classList.add('bell-on'); bellBtn.classList.remove('bell-off');
+      bellBtn.title = 'Уведомления включены';
+    } else {
+      bellBtn.classList.remove('bell-on'); bellBtn.classList.add('bell-off');
+      bellBtn.title = 'Включить push-уведомления';
+    }
+  }
+  window.toggleNotifications = async function() {
+    if (!('Notification' in window)) { alert('Уведомления не поддерживаются на этом устройстве.'); return; }
+    if (Notification.permission === 'denied') {
+      alert('Уведомления отключены в настройках. Включите их в Настройках телефона для этого сайта.');
+      return;
+    }
+    if (Notification.permission !== 'granted') {
+      try {
+        const res = await Notification.requestPermission();
+        if (res !== 'granted') { refreshBell(); return; }
+      } catch(e) { console.error(e); return; }
+    }
+    await registerSW();
+    await setupPush();
+    showLocalNotif('Заявки — Яна', 'Уведомления включены ✓');
+    refreshBell();
+  };
+
+  /* Firestore onSnapshot заменён polling'ом раз в 20 секунд */
+  let pollTimer = null, knownIds = null;
+  function startRealtime() {
+    if (pollTimer) return;
+    // 60с вместо 20с: держим расход в бесплатном тарифе Yandex Cloud.
+    // Мгновенность обеспечивают push и Telegram, polling — только страховка.
+    pollTimer = setInterval(() => {
+      if (!document.hidden && getToken()) loadBookings().catch(() => {});
+    }, 60000);
+  }
+
+  // При возврате в админку обновляем список сразу, не дожидаясь тика таймера
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && getToken()) loadBookings().catch(() => {});
+  });
+
+  function initAuthed() {
+    showLogin(false);
+    refreshBell();
+    registerSW();
+    if ('Notification' in window && Notification.permission === 'granted') setupPush();
+    startRealtime();
+    loadBookings();
+  }
+
+  if (getToken()) initAuthed(); else showLogin(true);
+
+  function showLogin(on) {
+    document.getElementById('screenLogin').classList.toggle('active', on);
+    document.getElementById('screenList').classList.toggle('active', !on);
+    window.scrollTo(0,0);
+  }
+
+  window.handleLogin = async function(e) {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value.trim();
+    const pass  = document.getElementById('loginPass').value;
+    const errEl = document.getElementById('loginError');
+    const btn   = document.getElementById('loginBtn');
+    errEl.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Входим...';
+    try {
+      const r = await fetch(`${API_URL}?action=login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass })
+      });
+      if (r.status === 401) throw new Error('bad_credentials');
+      if (!r.ok) throw new Error('server');
+      const { token } = await r.json();
+      localStorage.setItem('yp_admin_token', token);
+      initAuthed();
+    } catch (err) {
+      errEl.textContent = err.message === 'bad_credentials'
+        ? 'Неверный email или пароль'
+        : 'Ошибка соединения. Попробуйте ещё раз';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Войти';
+    }
+  };
+
+  window.doLogout = function() {
+    localStorage.removeItem('yp_admin_token');
+    knownIds = null;
+    showLogin(true);
+    closeDetail();
+  };
+
+  const scrollArea = document.getElementById('listContent');
+  const bottomNav  = document.getElementById('bottomNav');
+  let lastScrollTop = 0;
+
+  function currentScrollTop() {
+    const areaTop = scrollArea ? scrollArea.scrollTop : 0;
+    const docTop  = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    return Math.max(areaTop, docTop);
+  }
+
+  function onScroll() {
+    if (document.getElementById('modalSheet').classList.contains('open')) return;
+
+    const scrollTop = currentScrollTop();
+
+    if (scrollTop <= 10) {
+      bottomNav.classList.remove('nav-hidden');
+      lastScrollTop = scrollTop;
+      return;
+    }
+
+    const diff = scrollTop - lastScrollTop;
+
+    if (diff > 12) {
+      bottomNav.classList.add('nav-hidden');
+      lastScrollTop = scrollTop;
+    } else if (diff < -12) {
+      bottomNav.classList.remove('nav-hidden');
+      lastScrollTop = scrollTop;
+    }
+  }
+
+  if (bottomNav) {
+    if (scrollArea) scrollArea.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && getToken()) {
+      loadBookings();
+    }
+  });
+  
+})();
+</script>
+</body>
+</html>
