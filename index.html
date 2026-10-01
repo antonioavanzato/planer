@@ -19,28 +19,10 @@
 </head>
 <body>
 <div id="splash" class="splash" aria-live="polite">
-  <div class="splash-in">
-    <svg class="splash-ico" viewBox="0 0 64 64" aria-hidden="true"><g fill="currentColor"><rect x="12" y="22" width="6" height="20" rx="1.5"/><rect x="46" y="22" width="6" height="20" rx="1.5"/><rect x="6.5" y="26" width="4.5" height="12" rx="1.2"/><rect x="53" y="26" width="4.5" height="12" rx="1.2"/><rect x="18" y="30" width="28" height="4" rx="1"/></g></svg>
-    <p class="splash-q" id="splash-q">Яна — ты лучшая</p>
-  </div>
+  <div class="splash-in"><img class="splash-logo" src="icons/logo-splash.png" alt="Яна Pro"></div>
 </div>
 <script>
-/* Короткая фраза для Яны: читается за секунду. Каждый запуск — другая, без повтора подряд. */
 (function () {
-  var Q = [
-    "Яна — ты лучшая",
-    "Яна — ты сила",
-    "Ты вдохновляешь",
-    "Сегодня твой день",
-    "Всё получится",
-    "Сильнее каждый день",
-    "Яна — тренер №1"
-  ];
-  var last = -1, i;
-  try { last = +localStorage.getItem("splash-q2"); } catch (e) {}
-  do { i = Math.floor(Math.random() * Q.length); } while (i === last && Q.length > 1);
-  try { localStorage.setItem("splash-q2", i); } catch (e) {}
-  document.getElementById("splash-q").textContent = Q[i];
   window.__splashStart = Date.now();
   var sp = document.getElementById("splash");
   sp.addEventListener("click", function () { sp.classList.add("out"); setTimeout(function () { sp.remove(); }, 650); });
