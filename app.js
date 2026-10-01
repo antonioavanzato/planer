@@ -14,7 +14,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "32";
+const APP_VERSION = "33";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -210,7 +210,7 @@ body,input,textarea,select,button{font-family:"Manrope",system-ui,-apple-system,
 .topbar .nav-item svg{width:15px!important;height:15px!important;transform:none!important}
 .topbar .nav-item span{font-size:.8rem!important;text-transform:none!important;letter-spacing:0!important}
 .topbar .nav-item.active{background:var(--card)!important;color:var(--primary)!important;box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.scroll-area{padding-bottom:1.5rem!important}
+.scroll-area{padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))!important}
 .modal-sheet:not(.open){box-shadow:none!important}
 `;
 function themeAdmin() {
@@ -223,6 +223,9 @@ function themeAdmin() {
     d.head.append(font, st);
     const nav = d.getElementById("bottomNav"), top = d.querySelector(".topbar");
     if (nav && top) top.append(nav);
+    // прокрутка внутри «Заявок» прячет и показывает пилюлю Журнала, как в остальных разделах
+    const w = adminFrame.contentWindow, root = d.documentElement;
+    w.addEventListener("scroll", () => trackScroll(() => w.scrollY, () => root.scrollHeight - w.innerHeight), { passive: true });
   } catch (e) { console.warn("theme", e); }
 }
 
@@ -425,13 +428,13 @@ function setDockHidden(v) {
   dockState.hidden = v;
   document.getElementById("dock")?.classList.toggle("is-hidden", v);
 }
-window.addEventListener("scroll", () => {
+function trackScroll(getY, getMax) {
   if (dockState.ticking) return;
   dockState.ticking = true;
   requestAnimationFrame(() => {
     dockState.ticking = false;
-    const y = Math.max(0, window.scrollY);
-    const max = document.documentElement.scrollHeight - innerHeight;
+    const y = Math.max(0, getY());
+    const max = getMax();
     const dy = y - dockState.lastY;
     if (y < 60) setDockHidden(false);                 // у самого верха — всегда видно
     else if (y > max - 4 && max > 0) { /* пружина iOS у низа — не дёргаем */ }
@@ -440,7 +443,8 @@ window.addEventListener("scroll", () => {
     else return;                                      // мелкое дрожание пальца — не считаем
     dockState.lastY = y;
   });
-}, { passive: true });
+}
+window.addEventListener("scroll", () => trackScroll(() => window.scrollY, () => document.documentElement.scrollHeight - innerHeight), { passive: true });
 
 function renderClients() {
   const q = state.query.toLowerCase();
