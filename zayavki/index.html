@@ -428,11 +428,13 @@ body {
   box-shadow: 0 -20px 60px -20px rgba(15,13,11,.4);
   display: flex; flex-direction: column;
   transform: translateY(100%);
-  transition: transform .42s var(--ease);
+  /* Закрытая панель скрыта полностью: иначе на iPhone она выглядывает снизу, когда тянешь экран */
+  visibility: hidden;
+  transition: transform .42s var(--ease), visibility 0s linear .42s;
   overflow: hidden;
   touch-action: none;
 }
-.modal-sheet.open { transform: translateY(0); }
+.modal-sheet.open { transform: translateY(0); visibility: visible; transition: transform .42s var(--ease), visibility 0s; }
 .sched-status { text-align: center; font-size: .85rem; color: var(--ink-60); padding: .75rem 0 .5rem; }
 .sched-status.ok { color: var(--done); }
 .sched-status.err { color: var(--danger); cursor: pointer; text-decoration: underline; }
