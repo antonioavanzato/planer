@@ -435,9 +435,17 @@ body {
   touch-action: none;
 }
 .modal-sheet.open { transform: translateY(0); visibility: visible; transition: transform .42s var(--ease), visibility 0s; }
-.sched-status { text-align: center; font-size: .85rem; color: var(--ink-60); padding: .75rem 0 .5rem; }
+.sched-status {
+  position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 12px); z-index: 850;
+  transform: translate(-50%, -16px); opacity: 0; pointer-events: none;
+  max-width: calc(100vw - 32px); padding: .55rem 1rem; border-radius: 999px;
+  background: var(--card, #fff); color: var(--ink-60); font-size: .85rem; font-weight: 600; text-align: center;
+  box-shadow: 0 6px 24px -6px rgba(15,13,11,.35); transition: opacity .2s, transform .2s;
+}
+.sched-status.show { opacity: 1; transform: translate(-50%, 0); }
 .sched-status.ok { color: var(--done); }
 .sched-status.err { color: var(--danger); cursor: pointer; text-decoration: underline; }
+.sched-status.err { pointer-events: auto; cursor: pointer; }
 .modal-sheet.dragging { transition: none; }
 
 .sheet-grab {
@@ -1048,10 +1056,6 @@ input:checked + .slider:before { transform: translateX(22px); }
       `;
     });
 
-    html += `
-      <div class="sched-status" id="schedStatus">Изменения сохраняются автоматически</div>
-    `;
-
     const el = setContent(html);
     animateReveal(el);
   }
@@ -1064,13 +1068,20 @@ input:checked + .slider:before { transform: translateX(22px); }
 
   // Автосохранение графика: изменения уходят на сервер через секунду после последнего нажатия.
   let schedTimer = null, schedSaving = false, schedAgain = false;
+  let schedHide = null;
+  // Надпись вверху экрана: живёт отдельно от списка, чтобы не пропадала при его обновлении
   function schedStatus(text, cls) {
-    const el = document.getElementById('schedStatus');
-    if (el) { el.textContent = text; el.className = 'sched-status' + (cls ? ' ' + cls : ''); }
+    let el = document.getElementById('schedStatus');
+    if (!el) { el = document.createElement('div'); el.id = 'schedStatus'; document.body.appendChild(el); }
+    clearTimeout(schedHide);
+    el.onclick = null;
+    el.textContent = text;
+    el.className = 'sched-status show' + (cls ? ' ' + cls : '');
+    if (cls === 'ok') schedHide = setTimeout(() => el.classList.remove('show'), 2000);
   }
   window.queueSchedSave = function() {
     clearTimeout(schedTimer);
-    schedStatus('Сохраняем…');
+    schedStatus('Идёт сохранение…');
     schedTimer = setTimeout(saveWeeklySchedule, 800);
   };
 
@@ -1092,7 +1103,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     try {
       await api('schedule_set', { schedule: newSchedule });
       weeklySchedule = newSchedule;
-      schedStatus('✓ Сохранено, сайт записи обновлён', 'ok');
+      schedStatus('✓ Сохранено', 'ok');
     } catch (e) {
       console.error(e);
       schedStatus('Не удалось сохранить — нажмите, чтобы повторить', 'err');
