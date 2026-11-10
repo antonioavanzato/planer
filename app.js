@@ -14,7 +14,7 @@ const fb = initializeApp(firebaseConfig);
 const auth = getAuth(fb);
 const db = initializeFirestore(fb, { localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }) });
 
-const APP_VERSION = "42";
+const APP_VERSION = "43";
 
 const DEFAULT_EXERCISES = [
   "Присед со штангой", "Жим лёжа", "Становая тяга", "Жим стоя", "Тяга штанги в наклоне",
@@ -146,6 +146,8 @@ function scheduleRender() {
     renderQueued = false;
     // не перерисовываем экран тренировки, пока по нему печатают
     if (route().view === "w" && state.draft) { updateSync(); return; }
+    // и не сбиваем поиск, пока в нём печатают
+    if (document.activeElement?.id === "search") { updateSync(); return; }
     render();
   });
 }
@@ -329,14 +331,15 @@ function packagesOf(c, withPlanned = false) {
     p.left = p.count - p.used;
     p.expired = today() > p.expires;
     p.daysLeft = daysAgo(p.expires) * -1;
-    p.level = p.left <= 0 || p.expired ? "bad" : p.left <= 2 || p.daysLeft <= 3 ? "warn" : "ok";
+    // закончился больше месяца назад: клиент, скорее всего, ушёл — не напоминаем вечно
+    p.level = today() > addDays(p.expires, 30) ? "old" : p.left <= 0 || p.expired ? "bad" : p.left <= 2 || p.daysLeft <= 3 ? "warn" : "ok";
   }
   return { list: pk, current: pk[pk.length - 1] || null, alloc };
 }
 
 function packageTag(c) {
   const { current: p } = packagesOf(c);
-  if (!p || p.level === "ok") return "";
+  if (!p || p.level === "ok" || p.level === "old") return "";
   const text = p.left <= 0 ? "абонемент закончился" : p.expired ? "абонемент истёк" : `ост. ${p.left}`;
   return ` · <span class="pk-tag pk-${p.level}">${text}</span>`;
 }
@@ -845,6 +848,26 @@ function repeatPanel(w) {
     <div class="meta">Подставятся те же упражнения и подходы. Серые цифры — прошлый результат: нажми на них, чтобы взять как есть.</div></div>`;
 }
 
+const prevCell = (ei, si, p) => (p && num(p.w) != null ? `<button class="prev-btn" data-act="usePrev" data-ei="${ei}" data-si="${si}" aria-label="Взять прошлый результат">${fmt(num(p.w))}×${fmt(num(p.r))}</button>` : "—");
+
+// Новое название упражнения: обновляем подсказки на месте, чтобы не сбить нажатие на соседнее поле
+function refreshExerciseHints(ei) {
+  const w = state.draft, ex = w?.exercises?.[ei];
+  const sec = document.querySelector(`[data-exname="${ei}"]`)?.closest(".ex");
+  if (!ex || !sec) return;
+  const prev = ex.name ? previousExercise(w.clientId, w, ex.name) : null;
+  ex.sets.forEach((s, si) => {
+    const p = prev?.sets?.[si];
+    const cell = sec.querySelector(`button[data-act="step"][data-ei="${ei}"][data-si="${si}"]`)?.closest("tr")?.querySelector("td.prev");
+    if (cell) cell.innerHTML = prevCell(ei, si, p);
+    sec.querySelector(`[data-set="${ei}:${si}:w"]`)?.setAttribute("placeholder", p ? String(p.w ?? "") : "");
+    sec.querySelector(`[data-set="${ei}:${si}:r"]`)?.setAttribute("placeholder", p ? String(p.r ?? "") : "");
+  });
+  sec.querySelector(".pr")?.remove();
+  if (isRecord(w.clientId, w, ex)) sec.querySelector(".ex-h .x")?.insertAdjacentHTML("beforebegin", `<span class="pr">РЕКОРД</span>`);
+  if (!repeatPanel(w)) document.querySelector(".panel.repeat")?.remove();
+}
+
 function renderWorkout(wid) {
   if (!state.draft || state.draft.id !== wid) {
     const w = state.workouts.find((x) => x.id === wid);
@@ -863,7 +886,7 @@ function renderWorkout(wid) {
         <button class="x" data-act="delEx" data-ei="${ei}" aria-label="Удалить упражнение">×</button></div>
       <table class="sets"><tr><th>Подх.</th><th>Прошлый</th><th>Кг</th><th>Повт.</th><th></th></tr>
       ${ex.sets.map((s, si) => { const p = prev?.sets?.[si]; return `<tr>
-        <td>${si + 1}</td><td class="prev">${p && num(p.w) != null ? `<button class="prev-btn" data-act="usePrev" data-ei="${ei}" data-si="${si}" aria-label="Взять прошлый результат">${fmt(num(p.w))}×${fmt(num(p.r))}</button>` : "—"}</td>
+        <td>${si + 1}</td><td class="prev">${prevCell(ei, si, p)}</td>
         <td><div class="stepper"><button class="st" data-act="step" data-ei="${ei}" data-si="${si}" data-d="-2.5" aria-label="Минус 2,5 кг">−</button><input inputmode="decimal" value="${esc(s.w)}" placeholder="${p ? esc(p.w) : ""}" data-set="${ei}:${si}:w" aria-label="Вес, подход ${si + 1}"><button class="st" data-act="step" data-ei="${ei}" data-si="${si}" data-d="2.5" aria-label="Плюс 2,5 кг">+</button></div></td>
         <td><input inputmode="numeric" value="${esc(s.r)}" placeholder="${p ? esc(p.r) : ""}" data-set="${ei}:${si}:r" aria-label="Повторы, подход ${si + 1}"></td>
         <td><button class="x" data-act="delSet" data-ei="${ei}" data-si="${si}" aria-label="Удалить подход">×</button></td></tr>`; }).join("")}
@@ -1038,6 +1061,7 @@ function clientSheet(c) {
   };
   noPhoto.onclick = () => { photo = ""; ava.innerHTML = `<div class="ava">${c ? esc(initials(c.name)) : "+"}</div>`; noPhoto.hidden = true; };
   document.getElementById("delClient")?.addEventListener("click", () => {
+    if (!confirm(`Удалить клиента «${c.name}» и все его тренировки?`)) return;
     const client = structuredClone(c), sessions = structuredClone(allOf(c.id));
     const batch = writeBatch(db);
     sessions.forEach((w) => batch.delete(userDoc("workouts", w.id)));
@@ -1233,13 +1257,14 @@ async function importData(file) {
     if (!Array.isArray(data.clients) || !Array.isArray(data.workouts)) throw new Error("Это не файл бэкапа журнала.");
     const okId = (x) => x && typeof x === "object" && typeof x.id === "string" && /^[\w-]{1,64}$/.test(x.id);
     const items = [...data.clients.filter(okId).map((x) => ["clients", x]), ...data.workouts.filter(okId).map((x) => ["workouts", x])];
+    if (!confirm(`Восстановить из файла ${items.length} записей? Записи с такими же номерами будут заменены версией из файла.`)) return;
     for (let i = 0; i < items.length; i += 400) {
       const batch = writeBatch(db);
       items.slice(i, i + 400).forEach(([col, { id, ...rest }]) => batch.set(userDoc(col, id), rest));
       batch.commit().catch(showError);
     }
     document.querySelector(".sheet-bg")?.close?.();
-    showError({ message: `Импортировано: ${data.clients.length} клиентов, ${data.workouts.length} тренировок.` });
+    showError({ message: `Импортировано записей: ${items.length}.` });
   } catch (e) { showError(e); }
 }
 
@@ -1352,7 +1377,7 @@ document.addEventListener("input", (e) => {
 });
 // после выбора упражнения обновляем подсказки «прошлый раз»
 document.addEventListener("change", (e) => {
-  if (e.target.dataset.exname != null && state.draft) { flushDraft(); renderWorkout(state.draft.id); }
+  if (e.target.dataset.exname != null && state.draft) { flushDraft(); refreshExerciseHints(+e.target.dataset.exname); }
 });
 document.addEventListener("visibilitychange", () => { if (document.hidden) flushDraft(); });
 

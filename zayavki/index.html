@@ -760,6 +760,7 @@ input:checked + .slider:before { transform: translateX(22px); }
   }
 
   let allBookings = [];
+  let bookingsShown = false; // список уже показан: при коротком сбое связи не стираем его
   let weeklySchedule = null;
   let currentTab  = 'upcoming';
   let calMonth    = new Date().getMonth();
@@ -835,12 +836,19 @@ input:checked + .slider:before { transform: translateX(22px); }
      + понятный экран вместо вечного спиннера + кнопка «Повторить» ═══ */
   async function loadBookings() {
     try {
-      try {
-        const { schedule } = await api('schedule_get');
-        if (schedule) weeklySchedule = schedule;
-      } catch (schedErr) {
-        console.warn("Ошибка загрузки графика, применен дефолтный шаблон:", schedErr);
-      }
+      // Оба запроса идут одновременно: список открывается быстрее
+      const gen = schedGen;
+      const schedBefore = JSON.stringify(weeklySchedule);
+      const [schedRes, { bookings }] = await Promise.all([
+        api('schedule_get').catch(schedErr => {
+          console.warn("Ошибка загрузки графика, применен дефолтный шаблон:", schedErr);
+          return {};
+        }),
+        api('bookings'),
+      ]);
+      // Пока Яна меняет график, ответ сервера мог устареть: её нажатия важнее
+      const schedEditing = gen !== schedGen || schedTimer !== null || schedSaving;
+      if (schedRes.schedule && !schedEditing) weeklySchedule = schedRes.schedule;
 
       if (!weeklySchedule) {
         weeklySchedule = {
@@ -854,7 +862,6 @@ input:checked + .slider:before { transform: translateX(22px); }
         };
       }
 
-      const { bookings } = await api('bookings');
       const prevIds = knownIds;
       knownIds = new Set(bookings.map(b => b.slot_id));
       if (prevIds !== null) {
@@ -867,7 +874,9 @@ input:checked + .slider:before { transform: translateX(22px); }
         .map(d => ({ id: d.slot_id, ...d, dateStr: String(d.date).substring(0, 10) }));
       allBookings.sort((a,b)=>((a.dateStr||'')+(a.time||'')).localeCompare((b.dateStr||'')+(b.time||'')));
       updateChips();
-      renderTab();
+      // График перерисовываем, только если он реально изменился и его сейчас не редактируют
+      if (currentTab !== 'schedule' || (!schedEditing && JSON.stringify(weeklySchedule) !== schedBefore)) renderTab();
+      bookingsShown = true;
       updateTopbarDate();
       
       const n = new Date();
@@ -878,6 +887,7 @@ input:checked + .slider:before { transform: translateX(22px); }
     } catch(e) {
       console.error('loadBookings error:', e.code, e.message);
       document.getElementById('lastUpdated').innerHTML = `<span style="color:var(--danger)">Не удалось обновить</span>`;
+      if (bookingsShown) return;
       document.getElementById('listContent').innerHTML = `
         <div class="empty-state">
           <div class="empty-text">Ошибка загрузки данных${e.code ? ' ('+e.code+')' : ''}</div>
@@ -1067,7 +1077,7 @@ input:checked + .slider:before { transform: translateX(22px); }
   };
 
   // Автосохранение графика: изменения уходят на сервер через секунду после последнего нажатия.
-  let schedTimer = null, schedSaving = false, schedAgain = false;
+  let schedTimer = null, schedSaving = false, schedAgain = false, schedGen = 0;
   let schedHide = null;
   // Надпись вверху экрана: живёт отдельно от списка, чтобы не пропадала при его обновлении
   function schedStatus(text, cls) {
@@ -1081,11 +1091,13 @@ input:checked + .slider:before { transform: translateX(22px); }
   }
   window.queueSchedSave = function() {
     clearTimeout(schedTimer);
+    schedGen++;
     schedStatus('Идёт сохранение…');
     schedTimer = setTimeout(saveWeeklySchedule, 800);
   };
 
   window.saveWeeklySchedule = async function() {
+    schedTimer = null;
     if (schedSaving) { schedAgain = true; return; }
     schedSaving = true;
 
@@ -1483,6 +1495,7 @@ input:checked + .slider:before { transform: translateX(22px); }
   window.doLogout = function() {
     localStorage.removeItem('yp_admin_token');
     knownIds = null;
+    bookingsShown = false;
     showLogin(true);
     closeDetail();
   };
@@ -1524,11 +1537,6 @@ input:checked + .slider:before { transform: translateX(22px); }
     window.addEventListener('scroll', onScroll, { passive: true });
   }
 
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && getToken()) {
-      loadBookings();
-    }
-  });
   
 })();
 </script>

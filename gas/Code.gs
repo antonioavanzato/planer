@@ -9,7 +9,8 @@
  *    Она создаст запуск run каждую минуту и backup раз в неделю (пн, ~3:00).
  *
  * Экономия лимита Firebase (50 000 чтений в сутки бесплатно): каждую минуту читаем
- * только записи на ближайшие дни; полную базу — лишь раз в день для утренней сводки.
+ * только записи на вчера–завтра, ночью (0:00–5:00 МСК) не читаем ничего;
+ * полную базу — лишь раз в день для утренней сводки.
  */
 const PROJECT_ID = "planer-5a6ad";
 const APP_URL = "https://antonioavanzato.github.io/planer/";
@@ -35,13 +36,14 @@ function devicesByUser_() {
 }
 
 function run() {
+  if (+Utilities.formatDate(new Date(), "Europe/Moscow", "H") < 5) return; // ночью напоминать не о чем
   const byUser = devicesByUser_();
   let sent = 0, devices = 0;
   Object.keys(byUser).forEach((uid) => {
     devices += byUser[uid].length;
     // записи только на ближайшие дни (с запасом на часовые пояса)
-    const from = Utilities.formatDate(new Date(Date.now() - 2 * 864e5), "UTC", "yyyy-MM-dd");
-    const to = Utilities.formatDate(new Date(Date.now() + 2 * 864e5), "UTC", "yyyy-MM-dd");
+    const from = Utilities.formatDate(new Date(Date.now() - 864e5), "UTC", "yyyy-MM-dd");
+    const to = Utilities.formatDate(new Date(Date.now() + 864e5), "UTC", "yyyy-MM-dd");
     const near = runQuery_({
       from: [{ collectionId: "workouts" }],
       where: { compositeFilter: { op: "AND", filters: [
@@ -93,7 +95,7 @@ function run() {
         const todays = planned.filter((w) => w.date === now.date).sort((a, b) => (a.time || "").localeCompare(b.time || ""));
         const overdue = planned.filter((w) => w.date < now.date).length;
         const ending = Object.keys(clients).map((id) => ({ c: clients[id], p: packageLeft_(clients[id], workouts, now.date) }))
-          .filter((x) => x.p && (x.p.left <= 1 || x.p.expired));
+          .filter((x) => x.p && !x.p.stale && (x.p.left <= 1 || x.p.expired));
         const lines = [];
         if (todays.length) lines.push(todays.map((w) => `${w.time || ""} ${firstName_(clients[w.clientId])}`.trim()).join(", "));
         if (ending.length) lines.push("Абонемент: " + ending.map((x) => `${firstName_(x.c)} (${x.p.expired ? "истёк" : x.p.left <= 0 ? "закончился" : "ост. 1"})`).join(", "));
@@ -111,7 +113,10 @@ function run() {
 
 /** Раз в неделю кладёт полную копию данных в папку на Google Диске и хранит последние 12. */
 function backup() {
-  const byUser = devicesByUser_();
+  // владельцев берём по клиентам, а не по телефонам: бэкап не зависит от включённых уведомлений
+  const byUser = {};
+  runQuery_({ select: { fields: [{ fieldPath: "__name__" }] }, from: [{ collectionId: "clients", allDescendants: true }] })
+    .forEach((d) => { byUser[d.name.split("/users/")[1].split("/")[0]] = true; });
   const folders = DriveApp.getFoldersByName(BACKUP_FOLDER);
   const folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(BACKUP_FOLDER);
   const stamp = Utilities.formatDate(new Date(), "Europe/Moscow", "yyyy-MM-dd");
@@ -156,7 +161,7 @@ function packageLeft_(c, workouts, today) {
   workouts.filter((w) => w.clientId === c.id && w.status !== "planned").sort((a, b) => a.date.localeCompare(b.date))
     .forEach((s) => { const p = pk.find((x) => x.bought <= s.date && s.date <= x.expires && x.used < x.count); if (p) p.used++; });
   const cur = pk[pk.length - 1];
-  return cur ? { left: cur.count - cur.used, expired: today > cur.expires } : null;
+  return cur ? { left: cur.count - cur.used, expired: today > cur.expires, stale: today > addDays_(cur.expires, 30) } : null;
 }
 
 // ---------- FCM ----------

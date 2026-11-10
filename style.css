@@ -89,7 +89,7 @@ img.ava{object-fit:cover;padding:0;background:var(--line)}
 .visually-hidden{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 
 /* абонемент */
-.pk-ok{--pk:var(--good)} .pk-warn{--pk:var(--accent)} .pk-bad{--pk:var(--bad)}
+.pk-ok{--pk:var(--good)} .pk-warn{--pk:var(--accent)} .pk-bad{--pk:var(--bad)} .pk-old{--pk:var(--muted)}
 .pk{position:relative;display:flex;flex-direction:column;gap:8px}
 .pk::before{content:"";position:absolute;top:-1px;left:22px;right:22px;height:3px;border-radius:0 0 3px 3px;background:var(--pk)}
 .pk-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
